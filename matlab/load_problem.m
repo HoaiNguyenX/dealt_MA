@@ -54,6 +54,8 @@ path = [problem 'o' num2str(o) '/l' num2str(l)];
 if isempty(varargin)
     fig_no = 1;
     dim = 1;
+    problem_dim = 1;
+    space_dim = 2;
 else
     if length(varargin) == 1
         fig_no        = varargin{1};

@@ -51,7 +51,7 @@ out_path = ['./img_out/lshape_ac_'];
 
 load_problem(data, problem, out_path, o, l, 1)
 
-%% Poisson benchmark 3D case
+%% Poisson benchmark 3D case1, 1, dim
 o = 2; l = 5; 
 data = {'solution'};
 problem = '../out/poisson_benchmark_3d/';
@@ -69,7 +69,7 @@ problem = ['../out/linear_elasticity_inhomogeneous/' num2str(dim) 'd/'];
 % for o = 2:6
 %     out_path = ['./img_out/linear_elasticity_inhomogeneous_2d_o' num2str(o) '_'];
 %     load_problem(data, problem, out_path, o, l, o, dim)
-% end
+% end1, 1, dim
 
 data = {'solution'};
 o = 2; 
@@ -107,15 +107,29 @@ problem = '../out/poisson_benchmark_3d/';
 load_problem(data, problem, out_path, o, l, 1, 1, dim);
 
 
+%% Minimal surface halfcircle
+o = 3; l = 5; dim = 3; 
+out_path = './img_out/minimal_surface_halfcircle';
+data = {'solution'};
+problem = '../out/minimal_surface_tilted_halfcircle_uniform/';
+load_problem(data, problem, out_path, o, l);
 
 
+%% Minimal surface square
+
+o = 2; l = 3; dim = 3; 
+out_path = './img_out/minimal_surface_square';
+data = {'solution'};
+problem = '../out/minimal_surface_square_uniform/';
+load_problem(data, problem, out_path, o, l);
 
 
+%% Minimal surface catenoid
 
-
-
-
-
-
+o = 3; l = 2; dim = 3; 
+out_path = './img_out/minimal_surface_catenoid';
+data = {'solution'};
+problem = '../out/minimal_surface_annulus_uniform/';
+load_problem(data, problem, out_path, o, l);
 
 

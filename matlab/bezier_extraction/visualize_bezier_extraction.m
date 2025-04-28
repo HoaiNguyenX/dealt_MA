@@ -42,7 +42,7 @@ function C = visualize_bezier_extraction(xi, knot_in)
 %% User Parameters
 % The user can either use their own knot vectors, or make use of the few
 % examples we have listed here 
-% xi = [0 1 2 3 4]; knot_in = [0.5, 3.5];
+ xi = [0 1 2 3 4]; knot_in = [0.5, 3.5];
 % xi = [0 0 1 2 2]; knot_in = [0.5, 1.75];
 % xi = [0 1 2 2 2]; knot_in = [0.5, 1.75];
 % xi = [0 1 1 1 1]; knot_in = [1/3 2/3];
@@ -52,7 +52,7 @@ function C = visualize_bezier_extraction(xi, knot_in)
 % xi = [0 0 0 0 1]; knot_in = [1/3 1/2 2/3];
 % xi = [0.3125 0.375 0.4375 0.46875]; knot_in = [];
 % xi = [0 1 1 1 2]; knot_in = [0.5, 3.5];
-% xi = [0 0 1 1 2]; knot_in = [0.5, 3.5];
+% xi = [0 0 1 1 4]; knot_in = [0.5, 3.5];
 % xi = [0 1 2 3 3]; knot_in = [0.5, 3.5];
 % xi = [0 1 1 2 2 3 3 4]; knot_in = [0.5, 3.5];
 % xi = [0 0 1 1 1 1 2 2]; knot_in = [0.5, 3.5];

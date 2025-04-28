@@ -67,6 +67,14 @@ namespace dealt {
     ControlPoint  cp;              // We store the control point within the TSpline data
     anchor_bounds anchor;
 
+    // interpolation values of the spline
+    std::vector< std::vector<double> >  interpolation_values;
+
+    // solution coefficient of the spline
+    double solution;
+    // TODO: Gibt es soldim für Tsplines überhaupt? Sehe nur in ts_values
+    // Point<soldim> solution_point;
+
     // local knot vectors of this splines
     std::vector< std::vector<double> >  kv;
 
@@ -80,7 +88,13 @@ namespace dealt {
     // respective tsplines. Since there has not been done any testing with it, and
     // coarsening of a TS_Triangulation is currently unavailable, this variable will
     // not be accessible from outside this class.
+
+    //std::vector < std::shared_ptr<TSpline> > father;
     std::shared_ptr< TSpline >          father1 = nullptr;
+
+    // When inserting knots, we need to know, if the spline is an intermediate one
+    // i.e. if it will beused for further insertions.
+    bool intermediate;
 
     // To sort the TSplines in a usefull order, we can use the barycenter of a TSpline.
     // Each coordinate is the sum of the local kv, and can thus be used to uniquely
@@ -108,16 +122,18 @@ namespace dealt {
     TSplineFunction(
         const std::vector< std::vector< double > >& other_kv,
         const ControlPoint& other_cp,
+        const double other_solution = 0, 
         const std::shared_ptr<TSpline>& other_father1 = nullptr
         );
-
+    /*
     TSplineFunction(
         const std::vector< std::vector< double > >& other_kv,
         const anchor_bounds& other_anchor,
         const ControlPoint& other_cp,
-        const std::shared_ptr<TSpline>& other_father1
+        const double other_solution = 0,
+        const std::shared_ptr<TSpline>& other_father1 = nullptr
         );
-
+    */
     // delete default constructor
     TSplineFunction() = default;
 
@@ -144,6 +160,31 @@ namespace dealt {
 
   // Public functions to access membaer variables
   public:
+    // get interpolation values of spline
+
+    // set interpolation values of spline
+
+    // get father
+    std::shared_ptr<TSpline> get_father() { return father1; }
+
+    // traverse father "tree" to get the final father
+    std::shared_ptr<TSpline> traverse_father() const {
+      if (!father1)
+        return nullptr;
+      
+      auto father = this -> father1;
+      while (father){
+        father = father -> get_father();
+      }
+      return father;
+    }
+
+    // set solution
+    void set_solution(double sol) { this -> solution = sol; }
+
+    // get solution
+    double get_solution() const { return this -> solution; }
+
     // get control point of spline
     ControlPoint get_cp() const { return cp; }
 
@@ -158,6 +199,9 @@ namespace dealt {
 
     // de-activate or activate current spline
     void set_active(bool set) {this -> active = set;}
+
+    // set current spline as intermediate or final
+    void set_intermediate(bool set) {this -> intermediate = set;}
 
     // set level specific index of spline
     void set_level_index(unsigned int ind){this -> level_index = ind;}

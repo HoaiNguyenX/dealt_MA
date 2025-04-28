@@ -25,9 +25,9 @@ SET(TARGET_SRC
 # Usually, you will not need to modify anything beyond this point...
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1.0)
 
-set (DEAL_II_DIR ../../)
+set (DEAL_II_DIR /home/ifam-studenten/nguyen/Software/dealii-9.5.1/dealii-9.5.1)
 
-FIND_PACKAGE(deal.II 9.5.2 QUIET
+FIND_PACKAGE(deal.II 9.5.1 QUIET
 #FIND_PACKAGE(deal.II EXACT 9.2.0 QUIET
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
   )

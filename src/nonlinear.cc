@@ -1,0 +1,820 @@
+#include <nonlinear.h>
+
+
+namespace Nonlinear {
+
+  template class Nonlinear_Benchmark<2>;
+  template class Nonlinear_Benchmark<3>;
+
+  template class Nonlinear_RHS<2>;
+  template class Nonlinear_RHS<3>;
+
+  template class Nonlinear_NC<2>;
+  template class Nonlinear_NC<3>;
+
+
+
+  template<int dim>
+  Nonlinear_Benchmark<dim>::Nonlinear_Benchmark(
+    int ref,
+    int order,
+    int exponent,
+    const RefinementStrategy strategy,
+    const StepLengthStrategy steplength
+  ) : ref(ref)
+    , order(order)
+    , exponent(exponent)
+    , data(this->get_IPF_data())
+    , tria(data)
+    , cycle(0)
+    , refinement_strategy(strategy)
+    , step_length_strategy(steplength)
+  {
+    tria.degree_elevate_global(order);
+    tria.refine_bezier_elements();
+    const auto& cell = tria.begin_active();
+    const auto& CPs = tria.get_control_points(cell);
+    tria.coarsen_bezier_elements();
+
+    tria.prepare_assembly();
+
+    std::string name = "nonlinear";
+    if (strategy == RefinementStrategy::Adaptive)
+      name += "_adaptive/";
+    else
+      name += "_uniform/";
+
+
+    
+    // Set boundary indicators
+
+
+  } // constructor
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::setup_system()
+  {
+    std::cout << "Setting up system ... " << std::endl;
+
+    unsigned int n_global_dofs = tria.n_active_splines();
+    system_rhs.reinit(n_global_dofs);
+    current_solution.reinit(n_global_dofs);
+    newton_update.reinit(n_global_dofs);    // is this correct?
+  
+    const auto& IEN_array = tria.get_IEN_array();
+    Assert(IEN_array.size() > 0, ExcInternalError());
+
+    sparsity_pattern.reinit(
+        n_global_dofs,
+        n_global_dofs,
+        n_global_dofs );
+  
+    for (const auto& [_, arr] : IEN_array)
+      for (unsigned int i : arr)
+        for (unsigned int j : arr)
+          sparsity_pattern.add(i, j);
+  
+    // Free superfluous space
+    sparsity_pattern.compress();
+    system_matrix.reinit(sparsity_pattern);
+  } // setup_system
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::assemble_system()
+  {
+    //std::cout << "Assembling system matrix ... " << std::endl;
+  
+    // Setup initial tables that store the bernstein values / grads / hessians.
+  
+    std::vector< unsigned int > degrees = tria.get_degree();
+    degrees[0] = degrees[0]  + 1;
+    degrees[1] = degrees[1]  + 1;
+
+    TSValues<dim> ts_values(
+        &tria,
+        degrees,
+        update_values |
+        update_gradients |
+        update_quadrature_points |
+        update_JxW_values);
+
+    TSFaceValues<dim> face_values(
+        &tria,
+        degrees,
+        update_values |
+        update_gradients |
+        update_quadrature_points |
+        update_JxW_values);
+
+    const unsigned int dofs_per_cell = ts_values.n_dofs_per_cell();
+    FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+    Vector<double>     cell_rhs(dofs_per_cell);
+
+
+    for (const auto& cell : tria.active_cell_iterators())
+    {
+      // Get the Bernstein values on the cell
+      ts_values.reinit(cell);
+
+      // Get the values of the old solution for the current cell
+      std::vector< double > old_value(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_values(current_solution, old_value);
+
+      // Get the gradients of the old solution for the current cell
+      std::vector< Tensor<1, dim> > old_gradient(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_gradients(current_solution, old_gradient);
+
+      // Reset the cell matrix
+      cell_matrix       = 0;
+      cell_rhs          = 0;
+
+      int k = exponent;
+
+      // Quadrature sum:
+      for (const unsigned int q : ts_values.quadrature_point_indices())
+      {
+
+        // Build the cell matrix and rhs
+        for (const unsigned int i : ts_values.dof_indices())
+        {
+
+          for(const unsigned int j : ts_values.dof_indices())
+          {
+            cell_matrix(i,j) +=
+                    (((ts_values.shape_grad(i, q)          // ((\nabla \phi_i
+                       * (ts_values.shape_grad(j, q)      //   * \nabla \phi_j)
+                          + old_gradient[q]))               //     + \nabla u_n))
+                      +                                    //  +
+                      (ts_values.shape_value(i, q)         //  (\phi_i
+                       * k                                 //   * k
+                       * std::pow(old_value[q], k-1)       //     * u_n^k-1
+                       * ts_values.shape_value(j, q)))     //     * \phi_j)
+                     * ts_values.JxW(q));                  // * dx
+            
+          } // for ( j )
+
+          // Since the parametric and physical domain coincide, there is no need for mapping
+          const Point<dim>& mapped_q = ts_values.quadrature_point(q);
+          const double rhs = rhs_fcn.value(mapped_q);
+          
+          cell_rhs(i) += (ts_values.shape_value(i, q)              // \phi_i
+                            * (rhs                                 //  * f
+                               - std::pow(old_value[q], k)));      //    - u_n^k
+
+
+          
+        } // for ( i )      
+      } // for ( q )
+
+      // Check for neumann conditions
+      if (cell ->at_boundary())
+      {
+        for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
+        {
+          if (cell -> face(f) -> at_boundary()
+              && cell -> face(f) -> boundary_id() == Boundary::Neumann)
+          {
+            face_values.reinit(cell, f);
+            //TODO: Warum muss hier nicht auf param domain gemappt werden? So wie für rhs?
+            for (const unsigned int q : face_values.quadrature_point_indices())
+            {
+              const double g_value = nc_fcn.value(face_values.quadrature_point(q));
+              for (const unsigned int i : face_values.dof_indices())
+                cell_rhs(i) +=  (face_values.shape_value(i, q)    //  \phi_i
+                                  * 2 * g_value)                  //  * 2 * g
+                                * face_values.JxW(q);             // * dx
+              //TODO: ist das hier richtig?
+            } // for ( q )
+          } // if ( Neumann)
+
+        } // for ( f )
+      } // if
+
+ 
+
+      // Add the values to the system
+      std::vector< unsigned int > local_dof_indices =
+              tria.get_IEN_array(cell);
+
+      system_matrix.add(local_dof_indices, cell_matrix);
+      system_rhs.add(local_dof_indices, cell_rhs);
+
+    } // for ( cell )
+
+
+    // Impose zero Dirichlet boundary condition to the system for
+    // all boundary dofs. Newton_update is zero at full boundary
+    unsigned int n_global_dofs = tria.n_active_splines();
+    const auto& boundary_dofs = tria.get_boundary_dofs();
+
+
+    for (const auto& [boundary, dofs] : boundary_dofs){
+      for (const auto& dof : dofs){
+        for (unsigned int i = 0; i < n_global_dofs; i++){
+          system_matrix.set(i, dof, 0.);
+          system_matrix.set(dof, i, 0.);
+        }
+        system_matrix.set(dof, dof, 1.);
+        system_rhs(dof) =  0.;
+        //std::cout << "setting boundary at dof: " << dof << std::endl;
+      }
+    } 
+  } // assemble system
+
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::impose_boundary_condition()
+  {
+    std::cout << "Imposing boundary condition ..." << std::endl;
+    const auto& boundary_dofs = tria.get_boundary_dofs();
+    unsigned int n_global_dofs = tria.n_active_splines();
+    // For the case the initial mesh has no boundary dofs
+    if (boundary_dofs.size() == 0)
+      return;
+
+    // print number of dofs at boundary
+    //std::cout << "boundary_dofs: " << std::endl;
+    //for (const auto& [boundary, dofs] : boundary_dofs)
+    //  std::cout << boundary << ": " << dofs.size() << std::endl;
+    //std::cout << "number of global dofs: " << tria.n_active_splines() << std::endl;
+
+    std::vector< unsigned int > degrees = tria.get_degree();
+    degrees[0] = degrees[0]  + 1;
+    degrees[1] = degrees[1]  + 1;
+
+    std::map<
+        types::global_dof_index, 
+        double
+      > boundary_values;
+
+
+
+    // Secondly set the zero Dirichlet boundary values
+    if (boundary_dofs.find(Boundary::Dirichlet_0) 
+          != boundary_dofs.end())
+      for (const auto& dof : boundary_dofs.at(Boundary::Dirichlet_0))
+        boundary_values[dof] = 0.;
+
+    
+
+    // print boundary values
+    std::cout << "Boundary dofs of Dirichlet_0: " << std::endl;
+    const auto& splines = tria.get_splines(); 
+    for (const auto& dof : boundary_dofs.at(Boundary::Dirichlet_0)){
+      const auto& ts = splines.at(dof); 
+      const auto& anchor = ts -> get_anchor();
+      std::cout << dof << ": " << 0.5 * anchor.first + 0.5*anchor.second << ", value = " << boundary_values.at(dof) << std::endl;
+    } // for ( dof )
+    
+    MatrixTools::apply_boundary_values(
+      boundary_values, 
+      system_matrix,
+      current_solution,
+      system_rhs
+    );
+
+  } // impose_boundary_condition
+
+
+
+  template<int dim>
+  double Nonlinear_Benchmark<dim>::determine_step_length_LS() const
+  { 
+    // Room for improvement. LS via deal.II
+    return 0.1;
+  } // determine_step_length
+
+
+
+  template<int dim>
+  double Nonlinear_Benchmark<dim>::compute_residual_for_steplength(double alpha
+  ) const {
+    // Compute the discrete residual for the current solution
+    double n_global_dofs = tria.n_active_splines();
+    Vector<double> evaluation_points(n_global_dofs);
+    evaluation_points = current_solution;
+    evaluation_points.add(alpha, newton_update);
+
+    Vector<double> cell_residuals(n_global_dofs);
+    const std::vector<unsigned int>& degrees = tria.get_degree();
+
+    TSValues<dim> ts_values(
+        &tria,
+        degrees,
+        update_values |
+        update_gradients |
+        update_quadrature_points |
+        update_JxW_values);
+
+    TSFaceValues<dim> face_values(
+        &tria,
+        degrees,
+        update_values |
+        update_gradients |
+        update_quadrature_points |
+        update_JxW_values);
+
+    const unsigned int nvc = GeometryInfo<dim>::vertices_per_cell;
+    //const unsigned int nvf = GeometryInfo<dim>::vertices_per_face;
+
+
+    // Loop over all cells
+    for (const auto& cell : tria.active_cell_iterators())
+    {
+      std::vector< unsigned int > local_dof_indices = tria.get_IEN_array(cell);
+      ts_values.reinit(cell);
+
+      // Get the values of the old solution for the current cell
+      std::vector< double > old_value(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_values(current_solution, old_value);
+
+
+      int k = exponent;
+
+      // Quadrature sum:
+      for (const unsigned int q : ts_values.quadrature_point_indices())
+      {
+
+        // Build the cell matrix and rhs
+        for (const unsigned int i : ts_values.dof_indices())
+        {
+
+          // Since the parametric and physical domain coincide, there is no need for mapping
+          const Point<dim>& mapped_q = ts_values.quadrature_point(q);
+          const double rhs = rhs_fcn.value(mapped_q);
+          
+          cell_residuals(i) += (ts_values.shape_value(i, q)             // \phi_i
+                                * (rhs                                  //  * f
+                                   - std::pow(old_value[q], k)));       //    - u_n^k
+
+        } // for ( i )      
+      } // for ( q )
+
+      // Check for neumann conditions
+      if (cell ->at_boundary())
+      {
+        for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; f++)
+        {
+          if (cell -> face(f) -> at_boundary()
+              && cell -> face(f) -> boundary_id() == Boundary::Neumann)
+          {
+            face_values.reinit(cell, f);
+            //TODO: Warum muss hier nicht auf param domain gemappt werden? So wie für rhs?
+            for (const unsigned int q : face_values.quadrature_point_indices())
+            {
+              const double g_value = nc_fcn.value(face_values.quadrature_point(q));
+              for (const unsigned int i : face_values.dof_indices())
+                cell_residuals(i) +=  (face_values.shape_value(i, q)    //  \phi_i
+                                  * 2 * g_value)                  //  * 2 * g
+                                * face_values.JxW(q);             // * dx
+              //TODO: ist das hier richtig?
+            } // for ( q )
+          } // if ( Neumann)
+
+        } // for ( f )
+      } // if
+
+    } // for ( cell )
+
+    // Compute the L2 norm of the residual
+    double residual_norm = 0.;
+    for (unsigned int i = 0; i < n_global_dofs; ++i)
+      residual_norm += cell_residuals(i) * cell_residuals(i);
+
+    return std::sqrt(residual_norm);
+  } // compute_residual_for_steplength
+
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::estimate_and_mark()
+  {
+    std::cout << "    Refining grid..." << std::endl;
+    if (refinement_strategy == RefinementStrategy::Uniform) 
+    {
+      tria.coarsen_bezier_elements();
+      tria.refine_global();   
+    } 
+    else // RefinementStrategy::Adaptive
+    {
+      std::vector< TriaIterator<CellAccessor<2, 2>> > mark;
+      const std::vector<unsigned int>& degrees = tria.get_degree();
+      Vector<double>  local_residuals(tria.n_active_cells());
+
+      /*
+      tria.minimal_residual_error_estimate(
+                          {degrees[0]*degrees[0] + 1,
+                           degrees[1]*degrees[1] + 1},
+                           current_solution,
+                           local_residuals
+                           );
+      */
+
+      tria.refine_fixed_number(local_residuals, 0.10);
+    }
+
+    tria.prepare_assembly();
+  } // estimate_and_mark
+
+
+  template <int dim>
+  void Nonlinear_Benchmark<dim>::output_system()
+  {
+    std::cout << "Printing system matrix and rhs ... " << std::endl;
+  
+    const unsigned int level = tria.n_levels() - 1;
+    const std::string name = problem_out.degree.string();
+    const std::string level_name = name + "l" + std::to_string(level);
+
+
+    /*
+    std::string matrix = level_name + "_mat.dat" ;
+    std::string vector = level_name + "_vec.dat" ;
+    std::string soluti = level_name + "_sol.dat" ;
+
+    // Find some interesting spline index
+    if (tria.n_levels() - 1 == 9) {
+      const double target_x = 0.625;
+      const double target_y_min = 0.875;
+      const double target_y_max = 1.;
+
+      const auto& splines = tria.get_splines(); 
+
+      int index = -1;
+      for (const auto& t : splines) {
+        const auto& A0 = t -> get_anchor(0);
+        const auto& A1 = t -> get_anchor(1);
+        
+        if (A0.first == target_x && 
+              A1.first == target_y_min && 
+              A1.second == target_y_max)
+          index = t -> get_level_index();
+      }
+
+      std::cout << "index = " << index << std::endl;
+    }
+  
+    if (tria.n_levels() - 1 < 11) {
+      std::filebuf mat, vec, sol;
+      mat.open(matrix.c_str(), std::ios::out);
+      vec.open(vector.c_str(), std::ios::out);
+      sol.open(soluti.c_str(), std::ios::out);
+  
+      std::ostream mat_out(&mat);
+      std::ostream vec_out(&vec);
+      std::ostream sol_out(&sol);
+  
+      system_matrix.print_formatted(mat_out, 16, true, 1, "0");
+      system_rhs.print(vec_out, 16);
+      current_solution.print(sol_out, 16);
+  
+      mat.close();
+      vec.close();
+      sol.close();
+  
+      const unsigned int N1 = 100; 
+      const unsigned int N2 = 100;
+      const double xmin = 0; 
+      const double ymin = 0; 
+      const double xmax = 1; 
+      const double ymax = 1; 
+      std::vector<Point<dim>> evals; 
+      FullMatrix< double > E(N1 * N2, 2);
+      unsigned int ind = 0;
+      for (double j = 0.; j < N2; j++) {
+        for (double i = 0.; i < N1; i++) {
+          const double x = xmin + (i/(N1-1.)) * (xmax - xmin); 
+          const double y = ymin + (j/(N2-1.)) * (ymax - ymin); 
+          evals.push_back(Point<dim>(x, y));
+          E(ind, 0) = x;
+          E(ind, 1) = y;
+          ind++;
+        }
+      }
+
+      std::filebuf e_f;
+      e_f.open(level_name + "_evals.dat", std::ios::out);
+      std::ostream out_e(&e_f);
+      E.print_formatted(out_e, 16, true, 1, "0");
+      e_f.close();
+
+      
+      // Print the IPF wireframe:
+      // tria.print_grid(name);
+      tria.generate_mesh_file<0>(level_name, false, 16);
+      tria.generate_mesh_file<0>(level_name, true, 16);
+      tria.print_IPF_wireframe(level_name);
+      tria.printIPF(evals, level_name, 16, true, true);
+      tria.coarsen_bezier_elements();
+      tria.generate_mesh_file<0>(level_name, false, 16);
+      tria.generate_mesh_file<0>(level_name, true, 16);
+      tria.print_IPF_wireframe(level_name);
+      tria.refine_bezier_elements();
+    }
+    */
+
+    // Write the grid to a seperate file: 
+    const std::string& name_vtg = problem_out.vtg.string() + "physical_grid_l" + std::to_string(level) + ".vtu";
+
+    // First: Make a copy of the triangulation: 
+    Triangulation<dim> physical_grid; 
+    physical_grid.copy_triangulation(tria);
+
+    // And transform it with the IPF from tria.
+    // Note: This will make a linear representation
+    // of the boundary and interior nodes.
+    const IsoparametricManifold<dim> geometry(tria.get_IPF()); 
+    GridTools::transform(
+      [&geometry](const Point<dim>& p){
+        return geometry.push_forward(p);
+      },
+      physical_grid 
+    );
+
+    // Generate the output object
+    DataOut<dim> data_out;
+    data_out.attach_triangulation(physical_grid); 
+
+    /*
+    const std::vector<unsigned int>& degrees = tria.get_degree();
+    Vector<double>  cell_errors(tria.n_active_cells());
+
+    tria.minimal_residual_error_estimate(
+                  {degrees[0]*degrees[0] + 1,
+                   degrees[1]*degrees[1] + 1},
+                   current_solution,
+                   cell_errors
+                   );
+    data_out.add_data_vector(cell_errors, "cell_errors");
+    */
+
+    // Build patches
+    data_out.build_patches(); 
+
+    // Open a file
+    std::ofstream vtu_out(name_vtg); 
+    data_out.write_vtu(vtu_out);
+
+    // Print the table to a file preemptively
+    // output to .txt
+    problem_out.write_table_text();
+    problem_out.write_table_tex();
+
+    // print the difference pointwise for each cell
+    std::cout << " ... output to files done!" << std::endl;
+    
+
+
+
+
+
+    
+    GridOutFlags::Svg svg_flags;
+    svg_flags.coloring = GridOutFlags::Svg::Coloring::none;
+    // svg_flags.label_level_number  = true;
+    // svg_flags.label_cell_index    = true;
+    svg_flags.label_boundary_id   = true;
+    
+    std::string svg_name = problem_out.svg.string() + "parametric_grid_l"
+                          + std::to_string(tria.n_levels() - 1)
+                          + ".svg";  
+    //std::cout << "... printing to: " << svg_name << std::endl;
+    std::ofstream out(svg_name);
+    GridOut       grid_out;
+    grid_out.set_flags(svg_flags);
+    grid_out.write_svg(tria, out);
+    out.close();
+  } // output_system
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::solve_system()
+  {
+    return;
+  } // solve_system
+
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::print_numerical_solution(
+    std::string addition
+  ){
+    return;
+  }
+
+  template<int dim>
+  void Nonlinear_Benchmark<dim>::run()
+  {
+    std::cout << "Running benchmark ... " << std::endl;
+
+    setup_system();
+    // Set initial solution u_0 to zero. //TODO: Brauche ich das oder ist schon default?
+    for (unsigned int i = 0; i < current_solution.size(); ++i)
+      current_solution[i] = 0.;
+
+    // boundary condition on the first solution u_0
+    impose_boundary_condition();
+    
+
+    // Refinement cycle
+    unsigned int cycle = 0;
+    while (tria.n_levels() < this -> ref + 1)
+    {
+      std::cout << "  Refinement cycle " << cycle << ':' << std::endl;
+
+      if (cycle != 0)
+      {
+        estimate_and_mark();
+        setup_system();
+        tria.transfer_solution(current_solution);
+        impose_boundary_condition();
+      }
+
+
+      if (tria.n_levels() < 15) {
+      //output_system();
+      std::cout << "    Initial residual: " << compute_residual_for_steplength(0) << std::endl;
+
+      unsigned int newton_iteration = 0;
+      double last_norm = 0., current_norm = 1., norm_diff = 1.;
+      do {
+        // solve system with zero boundary condition
+        assemble_system();
+        //system_matrix.print_pattern(std::cout);
+        solve_system();
+        print_numerical_solution();
+        //output_system();
+
+
+        //std::cout << "    Residual of N_It " << newton_iteration+1 
+        //          << ": " << compute_residual_for_steplength(0) << std::endl;
+        current_norm = newton_update.l2_norm();
+        std::cout << "L2 ||update_n+1|| in N_It " << newton_iteration+1 
+                  << ": " << current_norm << std::endl;
+
+        //norm_diff = std::fabs(current_norm - last_norm);
+        //std::cout << "    discr. ||update_{n+1} - update_n|| in N_It " << newton_iteration+1 
+        //          << ": " << norm_diff << std::endl;
+
+        last_norm = current_norm;
+        newton_iteration++;
+
+      } // do ( ... )
+      while (newton_iteration < 30
+             //&& norm_diff > 1e-4 
+             && current_norm > 1e-2
+            );
+
+      std::cout << "Outputting system after last newton iteration ..." << std::endl;
+      output_system();
+
+      }
+      
+      cycle++;
+    }
+    std::cout << " ... done!" << std::endl;
+  } // run
+
+
+//===================================================================
+
+//===================================================================
+  template<>
+  double Nonlinear_RHS<2>::value(
+    const Point<2>&     p, 
+    const unsigned int /* component */
+  ) const {
+    double out = 0.;
+
+    return out;
+  } // value 2-dim
+
+  template<>
+  Tensor<1, 2> Nonlinear_RHS<2>::gradient(
+    const Point<2>&     p, 
+    const unsigned int /* component */
+  ) const {
+    Tensor<1, 2> out;
+
+    return out;
+  } // gradient 2-dim
+
+  template<>
+  double Nonlinear_NC<2>::value(
+    const Point<2>&     p, 
+    const unsigned int /* component */
+  ) const {
+    double out = 0.;
+
+    return out;
+  } // value 2-dim
+
+  template<>
+  double Nonlinear_RHS<3>::value(
+    const Point<3>&     p, 
+    const unsigned int /* component */
+  ) const {
+    double out = 0.;
+
+    return out;
+  } // value 3-dim
+
+  template<>
+  Tensor<1, 3> Nonlinear_RHS<3>::gradient(
+    const Point<3>&     p, 
+    const unsigned int /* component */
+  ) const {
+    Tensor<1, 3> out;
+
+    return out;
+  } // gradient 3-dim
+
+  template<>
+  double Nonlinear_NC<3>::value(
+    const Point<3>&     p, 
+    const unsigned int /* component */
+  ) const {
+    double out = 0.;
+
+    return out;
+  } // value 3-dim
+
+
+
+
+
+
+
+
+
+  // =================================================================
+
+  // =================================================================
+
+  template<int dim>
+  IPF_Data<dim> Nonlinear_Benchmark<dim>::get_IPF_data() const
+  {
+    Assert(dim == 2 || dim == 3, ExcNotImplemented());
+    IPF_Data<dim> data;
+    return data;
+  } // get_IPF_data
+  
+  template<>
+  IPF_Data<2> Nonlinear_Benchmark<2>::get_IPF_data() const
+  {
+    std::vector< std::vector< double > > kv;
+    std::vector< Point<2 + 1> > cps;
+    std::vector< unsigned int > deg;
+
+
+    // define the knot vectors
+    kv = std::vector< std::vector< double > >(2);
+    kv[0] = {0, 0, 1, 1};
+    kv[1] = {0, 0, 1, 1};
+
+    // define the control points vector
+    cps = std::vector< Point<3> >(4);
+    cps[0] = Point<2 + 1>( 0.,  0.,  1.);
+    cps[1] = Point<2 + 1>( 1.,  0.,  1.);
+    cps[2] = Point<2 + 1>( 0.,  1.,  1.);
+    cps[3] = Point<2 + 1>( 1.,  1.,  1.);
+
+    // define the degrees
+    deg = {1, 1};
+
+    return IPF_Data<2>(cps, kv, deg);
+  } // get_IPF_data 2-dim
+
+
+  template<>
+  IPF_Data<3> Nonlinear_Benchmark<3>::get_IPF_data() const
+  {
+    std::vector< std::vector< double > > kv;
+    std::vector< Point<3> >              cps;
+    std::vector< unsigned int >          deg;
+
+    // define the knot vectors
+    kv = std::vector< std::vector< double > >(3);
+    kv[0] = {0, 0, 0, 1, 1, 1};
+    kv[1] = {0, 0, 0, 1, 1, 1};
+    kv[2] = {0, 0, 0, 1, 1, 1};
+
+    // define the control points vector
+    cps = std::vector< Point<3> >(8);
+    cps[0] = Point<3>( 0.,  0.,  0.);
+    cps[1] = Point<3>( 1.,  0.,  0.);
+    cps[2] = Point<3>( 0.,  1.,  0.);
+    cps[3] = Point<3>( 1.,  1.,  0.);
+    cps[4] = Point<3>( 0.,  0.,  1.);
+    cps[5] = Point<3>( 1.,  0.,  1.);
+    cps[6] = Point<3>( 0.,  1.,  1.);
+    cps[7] = Point<3>( 1.,  1.,  1.);
+
+    // define the degrees
+    deg = {1, 1, 1};
+
+    std::vector< double >     weights(8, 1.);
+    
+    return IPF_Data<3>(cps, weights, kv, deg);;
+  } // get_IPF_data 3-dim
+
+
+
+} // namespace Nonlinear

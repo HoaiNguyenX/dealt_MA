@@ -48,6 +48,7 @@ namespace dealt {
     this -> degree            = this -> problem / std::filesystem::path("o" + std::to_string(degree) + "/");
     this -> svg               = this -> degree / std::filesystem::path("00svg/");
     this -> vtg               = this -> degree / std::filesystem::path("01vtg/");
+    this -> dat               = this -> degree / std::filesystem::path("02dat/");
     if (dim == 3) {
       this -> cross_sections    = this -> vtg / std::filesystem::path("cross_sections/");
       this -> cross_sections_x  = this -> cross_sections / std::filesystem::path("x/");
@@ -121,6 +122,7 @@ namespace dealt {
     this -> degree            = other.degree;
     this -> svg               = other.svg;
     this -> vtg               = other.vtg;
+    this -> dat               = other.dat;
     this -> table             = other.table;
     this -> cross_sections    = other.cross_sections;
     this -> cross_sections_x  = other.cross_sections_x;
@@ -135,6 +137,7 @@ namespace dealt {
     this -> degree            = other.degree;
     this -> svg               = other.svg;
     this -> vtg               = other.vtg;
+    this -> dat               = other.dat;
     this -> table             = other.table;
     this -> cross_sections    = other.cross_sections;
     this -> cross_sections_x  = other.cross_sections_x;
@@ -171,7 +174,10 @@ namespace dealt {
   
     if (std::filesystem::create_directory(this->vtg, cp))
       std::cout << "Created output directory " << this->vtg.string() << std::endl;
-  
+    
+    if (std::filesystem::create_directory(this->dat, cp))
+      std::cout << "Created output directory " << this->dat.string() << std::endl;
+
     if (dim == 3) {
       if (std::filesystem::create_directory(this->cross_sections, cp))
         std::cout << "Created output directory " << this->cross_sections.string() << std::endl;

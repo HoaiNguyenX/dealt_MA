@@ -119,7 +119,8 @@ namespace dealt {
     std::filesystem::path problem; 
     std::filesystem::path degree; 
     std::filesystem::path svg;    
-    std::filesystem::path vtg;    
+    std::filesystem::path vtg;
+    std::filesystem::path dat;    
     std::filesystem::path cross_sections;
     std::filesystem::path cross_sections_x;
     std::filesystem::path cross_sections_y;

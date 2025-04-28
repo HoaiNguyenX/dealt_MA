@@ -29,15 +29,17 @@ namespace dealt {
   template<int dim, int spacedim>
   int TSplineFunction<dim, spacedim>::s_id = 0;
 
-
+  /*
   template<int dim, int spacedim>
   TSplineFunction<dim, spacedim>::TSplineFunction(
       const std::vector<std::vector<double>>& other_kv,
       const anchor_bounds& other_anchor,
       const ControlPoint& other_cp,
+      const double other_solution,
       const std::shared_ptr<TSpline>& other_father1
       ) : dealii::Function<dim>(1)
   {
+
     kv          = other_kv;
     anchor      = other_anchor;
     cp          = other_cp;
@@ -45,10 +47,16 @@ namespace dealt {
     father1 = other_father1;
     calc_barycenter();
 
-    if (father1)
+    if (father1) 
+    {
       lev = father1 -> level() + 1;
+      intermediate = true;
+    }
     else
+    {
       lev = 0; // ??
+      intermediate = false;
+    }
 
     // count multiplicities:
     for (int d = 0; d < dim; d++){
@@ -66,12 +74,13 @@ namespace dealt {
       }
     }
   }
-
+  */
 
   template<int dim, int spacedim>
   TSplineFunction<dim, spacedim>::TSplineFunction(
       const std::vector<std::vector<double>>& other_kv,
       const ControlPoint& other_cp,
+      const double other_solution,
       const std::shared_ptr<TSpline>& other_father1
       ) : dealii::Function<dim>(1)
   {
@@ -82,15 +91,24 @@ namespace dealt {
 
     kv          = other_kv;
     cp          = other_cp;
-    ind = s_id++;
-    father1 = other_father1;
+    ind         = s_id++;
+    father1     = other_father1;
+    solution    = other_solution;
     calc_barycenter();
 
 
-    if (father1)
+    if (father1) 
+    {
       lev = father1 -> level() + 1;
+      // if the spline has a father, then i was refined and is an intermediate
+      this -> intermediate = true;
+    }
     else
+    {
       lev = 0; // ??
+      // if the spline has no father, then it is a final spline
+      this -> intermediate = false;
+    }
 
     // count multiplicities:
     std::vector< std::vector< int > > multiplicities;

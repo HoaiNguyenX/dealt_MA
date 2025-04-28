@@ -596,6 +596,16 @@ namespace Poisson_Neumann {
       );
 
     } else { 
+
+      run_times.add_value(
+          "Estimate",
+          0
+      );
+      run_times.add_value(
+          "Mark and Refine",
+          0
+      );
+
       tria.coarsen_bezier_elements();
       tria.refine_global();   
     } // if ( strategy )
@@ -638,7 +648,7 @@ namespace Poisson_Neumann {
       this -> solve();
       // this -> print_error();
       this -> compute_h1_error();
-      // this -> output_system();
+      this -> output_system();
       this -> estimate_and_mark();
 
       if (old_level == tria.n_levels() - 1)

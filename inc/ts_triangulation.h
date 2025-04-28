@@ -463,6 +463,20 @@ namespace dealt {
             >& boundary_values
     ) const;
 
+    // Computes the weak residual for the minimal surface problem
+    void minimal_residual_error_estimate(
+      const std::vector< unsigned int >&  degrees,
+      const Vector<double>&               solution,
+      std::map< cell_iterator, double >&  residuals
+    ) const; // minimal_residual_error_estimate [1/2]
+
+    // Computes the weak residual for the minimal surface problem
+    void minimal_residual_error_estimate(
+      const std::vector< unsigned int >&  degrees,
+      const Vector<double>&               solution,
+            Vector<double>&               residuals
+    ) const; // minimal_residual_error_estimate [2/2]
+
 
     /// Computes the residual error for poisson-like problems of the form
     ///  \f[
@@ -1086,6 +1100,10 @@ namespace dealt {
         const cell_iterator& cell2,
               Point<dim>& distance
     ) const;
+
+    void transfer_solution(
+        Vector<double>& solution
+    ) const;
   }; // TS_TriangulationBase<dim, spacedim>
   
   // This class serves the purpose to define TS_Triangulation with 2 template arguments. 
@@ -1325,6 +1343,7 @@ namespace dealt {
     std::vector< Tensor<1, spacedim> >                  normals; // For the normals on faces.
 
     TS_TriangulationBase<dim, spacedim>*    tria;
+    active_cell_iterator                    last_cell;
 
     Quadrature< dim >                   cell_quadrature;
     std::array<Quadrature<dim>, dim>    face_quadratures;
@@ -1432,6 +1451,15 @@ namespace dealt {
 
     const unsigned int& n_quadrature_points() const;
 
+    void get_function_values(
+      const Vector<double>          &points,
+            std::vector< double >   &values
+    ) const;
+
+    void get_function_gradients(
+      const Vector<double>                       &points,
+            std::vector< Tensor<1, spacedim> >   &gradients
+    ) const;
 
   // protected member functions to be used for 
   // derived classes, in particular TSFaceValuesBase

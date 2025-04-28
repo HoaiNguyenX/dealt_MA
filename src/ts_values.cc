@@ -1202,6 +1202,7 @@ namespace dealt {
   void TSValues<dim, spacedim, soldim>::reinit(
     const active_cell_iterator& cell
   ) { 
+    this->last_cell = cell;
     Assert(this -> flags & update_values, ExcNotInitialized());
     // Assert(this -> flags & update_gradients, ExcNotInitialized());
     if (this->flags & update_hessians)
@@ -2822,6 +2823,41 @@ namespace dealt {
     this -> set_bernstein_tables();
     this -> init_shape_tables(); 
   } // test_geometry_mapping
+
+  template<int dim, int spacedim, int soldim>
+  void TSValuesBase<dim, spacedim, soldim>::get_function_values(
+      const Vector<double>          &points,
+            std::vector< double >   &values
+  ) const {
+    const std::vector<unsigned int>& IEN = 
+        this -> tria -> get_IEN_array(this -> last_cell);
+
+    for (unsigned int q = 0; q < this->n_quadrature_points(); q++) {
+      values[q] = 0; 
+      for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
+        const unsigned int index = IEN[i];
+        values[q] += points[index] * this -> shape_value(i, q);
+      }
+    }
+  }
+
+  template<int dim, int spacedim, int soldim>
+  void TSValuesBase<dim, spacedim, soldim>::get_function_gradients(
+      const Vector<double>                     &points,
+            std::vector< Tensor<1, spacedim> > &gradients
+  ) const {
+    const std::vector<unsigned int>& IEN = 
+        this -> tria -> get_IEN_array(this -> last_cell);
+
+    for (unsigned int q = 0; q < this->n_quadrature_points(); q++) {
+      gradients[q] = Tensor<1, spacedim>(); 
+      for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
+        const unsigned int index = IEN[i];
+        //std::cout << "i: " << i << " index: " << IEN[i] << " q: " << q << std::endl;
+        gradients[q] += points[index] * this -> shape_grad(i, q);
+      }
+    }
+  }
 
 #include "ts_values.inst.in"
 

@@ -878,7 +878,67 @@ void print_example(std::string ex, int ref, int order){
   } else if (ex == "slab") {
     Classical::ClassicalProblem problem(ref, order, Classical::Type::Slab);
     problem.run();
+
+  
+  
+  
+  
+  // Minimal Surface Problems
+  
+  } else if (ex == "minimal_standard") {
+    Minimal_Surface::Minimal_Benchmark_Standard problem(order);
+    problem.run(ref);
+  } else if (ex == "minimal_c_uniform") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Tilted_Halfcircle,
+      Minimal_Surface::RefinementStrategy::Uniform,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
+  } else if (ex == "minimal_a_uniform") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Annulus,
+      Minimal_Surface::RefinementStrategy::Uniform,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
+  } else if (ex == "minimal_s_uniform") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Square,
+      Minimal_Surface::RefinementStrategy::Uniform,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
+  } else if (ex == "minimal_c_adaptive") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Tilted_Halfcircle,
+      Minimal_Surface::RefinementStrategy::Adaptive,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
+  } else if (ex == "minimal_s_adaptive") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Square,
+      Minimal_Surface::RefinementStrategy::Adaptive,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
+  } else if (ex == "minimal_a_adaptive") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Annulus,
+      Minimal_Surface::RefinementStrategy::Adaptive,
+      Minimal_Surface::StepLengthStrategy::Constant
+    );
+    problem.run();
   } else 
+
+
     Assert(false, ExcMessage("The chosen case is not implemented"));
 }
 
