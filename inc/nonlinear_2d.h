@@ -6,8 +6,8 @@
  */
 
 
-#ifndef INC_NONLINEAR_H_
-#define INC_NONLINEAR_H_
+#ifndef INC_NONLINEAR_2D_H_
+#define INC_NONLINEAR_2D_H_
 
 #include <memory>
 
@@ -61,34 +61,36 @@ namespace Nonlinear {
   using namespace dealii;
   using namespace dealt;
 
-  template<int dim>
-  class Nonlinear_RHS : public Function<dim> {
+  class Nonlinear2D_RHS : public Function<2> {
   public:
-    Nonlinear_RHS() : Function<dim>(1) {}
+    Nonlinear2D_RHS() : Function<2>(1) {}
+    ~Nonlinear2D_RHS() = default;
 
     virtual double value(
-      const Point<dim>& p,
-      const unsigned int     component = 0
+      const Point<2>&       p,
+      const unsigned int    component = 0
     ) const override;
         
-    virtual Tensor<1, dim> gradient(
-      const Point<dim>& p,
-      const unsigned int     component = 0
+    virtual Tensor<1, 2> gradient(
+      const Point<2>&       p,
+      const unsigned int    component = 0
     ) const override; 
   };
 
-  template<int dim>
-  class Nonlinear_NC : public Function<dim> {
+  class Nonlinear2D_NC : public Function<2> {
   public:
-  Nonlinear_NC() : Function<dim>(1) {}
-
+    Nonlinear2D_NC() : Function<2>(1) {}
+    ~Nonlinear2D_NC() = default;
     virtual double value(
-      const Point<dim>& p,
+      const Point<2>& p,
       const unsigned int     component = 0
     ) const override;
   };
 
-
+  enum ProblemCase{
+    Case_1,
+    Case_2
+  };
   
   enum RefinementStrategy{
     Adaptive, 
@@ -100,22 +102,23 @@ namespace Nonlinear {
     LineSearch
   };
 
-  template <int dim>
-  class Nonlinear_Benchmark
+
+  class Nonlinear2D_Benchmark
   {
     enum Boundary {
       None, 
-      Neumann,
-      Dirichlet_0
+      Neumann_Case_1,
+      Dirichlet_0,
+      Dirichlet
     };
 
   private:
     int ref;
     int order;
-    int exponent; // exponent k of equation. k=2 or k=3
+    int exponent; // exponent k of equation. k=3
 
-    IPF_Data<dim, dim>            data;
-    TS_Triangulation<dim, dim>    tria;
+    IPF_Data<2, 2>            data;
+    TS_Triangulation<2, 2>    tria;
 
 
     SparsityPattern           sparsity_pattern;
@@ -129,18 +132,19 @@ namespace Nonlinear {
 
     unsigned int              cycle;
 
-    Nonlinear_RHS<dim>        rhs_fcn;
-    Nonlinear_NC<dim>         nc_fcn;
+    Nonlinear2D_RHS             rhs_fcn;
+    Nonlinear2D_NC              nc_fcn;
 
     RefinementStrategy        refinement_strategy;
     StepLengthStrategy        step_length_strategy;
 
 
   public:
-    Nonlinear_Benchmark(
+    Nonlinear2D_Benchmark(
       int ref,
       int order,
       int exponent,
+      const ProblemCase problem_case,
       const RefinementStrategy strategy = RefinementStrategy::Uniform,
       const StepLengthStrategy steplength_strategy = StepLengthStrategy::Constant
     );
@@ -148,8 +152,8 @@ namespace Nonlinear {
     void run();
 
   private:
-    IPF_Data<dim> get_IPF_data() const;
-    //IPF_Data<3, 3> get_IPF_data() const;
+    IPF_Data<2> get_IPF_data() const;
+
 
     void   setup_system();
     void   assemble_system();
@@ -166,4 +170,4 @@ namespace Nonlinear {
 
 } // namespace Nonlinear
 
-#endif /* INC_NONLINEAR_H_ */
+#endif /* INC_NONLINEAR_2D_H_ */

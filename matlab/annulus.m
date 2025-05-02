@@ -1,18 +1,19 @@
-kvx = [0, 0, 0, 1/4, 1/2, 1/2, 3/4, 1, 1, 1];
+%kvx = [0, 0, 0, 1/4, 1/2, 1/2, 3/4, 1, 1, 1];
+kvx = [-3,-3,-3, -1.5, 0, 0, 1.5, 3,3,3];
 kvy = [0, 0, 1, 1];
 px = 2;
 py = 1;
 
 N=50;
 eval_x = linspace(min(kvx), max(kvx), N);
-eval_y = linspace(min(kvy), max(kvy), N);
+eval_y = 1;%linspace(min(kvy), max(kvy), N);
 n_evals = length(eval_x) * length(eval_y);
 
 Bx = spcol(kvx, px + 1, eval_x);
 By = spcol(kvy, py + 1, eval_y);
 n_splines = size(Bx, 2) * size(By, 2);
 
-r = 0; R = 1; 
+r = 1.54308; R = 3.762196; 
 P = zeros(3, 14);
 Pbar  = [ -1 -1/2 1/2 1 1/2 -1/2 -1; ...
           0 1/2 1/2 0 -1/2 -1/2 0];

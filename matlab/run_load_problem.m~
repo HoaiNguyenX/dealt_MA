@@ -109,7 +109,7 @@ load_problem(data, problem, out_path, o, l, 1, 1, dim);
 
 %% Minimal surface halfcircle
 o = 3; l = 5; dim = 3; 
-out_path = './img_out/minimal_surface_halfcircle_';
+out_path = './img_out/minimal_surface_halfcircle';
 data = {'solution'};
 problem = '../out/minimal_surface_tilted_halfcircle_uniform/';
 load_problem(data, problem, out_path, o, l);
@@ -117,19 +117,19 @@ load_problem(data, problem, out_path, o, l);
 
 %% Minimal surface square
 
-o = 2; l = 13; dim = 3; 
-out_path = './img_out/minimal_surface_square_';
+o = 2; l = 3; dim = 3; 
+out_path = './img_out/minimal_surface_square';
 data = {'solution'};
-problem = '../out/minimal_surface_square_adaptive/';
-load_problem(data, problem, out_path, o, l, 11);
+problem = '../out/minimal_surface_square_uniform/';
+load_problem(data, problem, out_path, o, l, 10);
 
 
 %% Minimal surface catenoid
 
-o = 2; l = 1; dim = 3; 
-out_path = './img_out/minimal_surface_catenoid_aa';
-data = {'grid'};
-problem = '../out/minimal_surface_annulus_adaptive/';
-load_problem(data, problem, out_path, o, l, 12);
+o =2; l = 10; dim = 3; 
+out_path = './img_out/minimal_surface_catenoid';
+data = {'solution'};
+problem = '../out/minimal_surface_annulus_uniform/';
+load_problem(data, problem, out_path, o, l, 19);
 colorbar
 

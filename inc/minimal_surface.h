@@ -29,9 +29,6 @@
 #include <deal.II/fe/fe_bernstein.h>
 #include <deal.II/fe/fe_values.h>
 
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/dofs/dof_handler.h>
-
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/data_out.h>
@@ -89,10 +86,21 @@ namespace Minimal_Surface {
   };
 
 
-  class Minimal_DC_catenoid : public Function<2> {
+  class Minimal_DC1_catenoid : public Function<2> {
   public:
-    Minimal_DC_catenoid() : Function<2>(1) {}
-    ~Minimal_DC_catenoid() = default;
+    Minimal_DC1_catenoid() : Function<2>(1) {}
+    ~Minimal_DC1_catenoid() = default;
+
+    virtual double value(
+      const Point<2>&     p,
+      const unsigned int  component = 0
+    ) const override;
+  };
+
+  class Minimal_DC2_catenoid : public Function<2> {
+  public:
+    Minimal_DC2_catenoid() : Function<2>(1) {}
+    ~Minimal_DC2_catenoid() = default;
 
     virtual double value(
       const Point<2>&     p,
@@ -134,8 +142,11 @@ namespace Minimal_Surface {
       None,
       Dirichlet_0,
       Dirichlet_c,
-      Dirichlet_a,
-      Dirichlet_s
+      Dirichlet_a1,
+      Dirichlet_a2,
+      Dirichlet_s,
+      Periodic_left,
+      Periodic_right
     };
     
   private:
@@ -148,6 +159,8 @@ namespace Minimal_Surface {
 
     SparsityPattern           sparsity_pattern;
     SparseMatrix<double>      system_matrix;
+    //SparseMatrix<double>      jacobian_matrix;
+    //std::unique_ptr<SparseDirectUMFPACK> jacobian_matrix_factorization;
 
     OutputSetup               problem_out;
 
@@ -161,39 +174,52 @@ namespace Minimal_Surface {
 
     Minimal_DC_circle         circ_DC_fcn;
     Minimal_DC_square         square_DC_fcn;   
-    Minimal_DC_catenoid       cat_DC_fcn;
+    Minimal_DC1_catenoid      cat_DC1_fcn;
+    Minimal_DC2_catenoid      cat_DC2_fcn;
     
     ProblemShape              problem_shape;
     RefinementStrategy        refinement_strategy;
     StepLengthStrategy        step_length_strategy;
+    const bool                singularity;
   public:
     Minimal_Benchmark(
       int ref,
       int order,
       const ProblemShape shape,
       const RefinementStrategy strategy = RefinementStrategy::Uniform,
-      const StepLengthStrategy steplength_strategy = StepLengthStrategy::Constant
+      const StepLengthStrategy steplength_strategy = StepLengthStrategy::Constant,
+      const bool singularity = false
     );
     void run();
 
     
   private:
-    IPF_Data<2, 2> get_IPF_data(ProblemShape shape);
+    IPF_Data<2, 2> get_IPF_data(const ProblemShape shape, 
+                                const bool singularity);
     IPF_Data<2, 2> get_IPF_data_halfcircle();
     IPF_Data<2, 2> get_IPF_data_tiltedhalfcircle();
-    IPF_Data<2, 2> get_IPF_data_annulus();
+    IPF_Data<2, 2> get_IPF_data_annulus(const bool singularity);
     IPF_Data<2, 2> get_IPF_data_square();
 
     void   setup_system();
     void   assemble_system();
     void   impose_boundary_condition(ProblemShape shape);
     double compute_residual_for_steplength(double alpha);
-    void   solve_system();
+    void   solve_system_constant();
+
     void   output_system();
-    double determine_step_length_const() const {return 1.;};
-    double determine_step_length_LS() const;
+    double determine_step_length_const() const {return 0.1;};
     void   estimate_and_mark();   
     void   print_numerical_solution(std::string addition = "");
+    void   output_results(const unsigned int refinement_cycle);
+
+    //TODO: step-77
+    void   compute_and_factorize_jacobian(const Vector<double> &evaluation_point);
+    void   compute_residual(const Vector<double> &evaluation_point,
+                          Vector<double>       &residual);
+    void   solve_system_LS(const Vector<double> &rhs,
+                           Vector<double>       &solution,
+                           const double /*tolerance*/);
 
   };
 

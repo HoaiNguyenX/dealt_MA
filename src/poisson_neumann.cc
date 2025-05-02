@@ -648,7 +648,7 @@ namespace Poisson_Neumann {
       this -> solve();
       // this -> print_error();
       this -> compute_h1_error();
-      this -> output_system();
+      // this -> output_system();
       this -> estimate_and_mark();
 
       if (old_level == tria.n_levels() - 1)

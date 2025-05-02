@@ -1233,6 +1233,7 @@ namespace dealt {
     const active_cell_iterator& cell,
     const          int&         face_no
   ) { 
+    this -> last_cell      = cell;
              int& old_face = this->face_no; 
     unsigned int& offset   = this->offset; 
              int  f        = 0;
@@ -2858,6 +2859,25 @@ namespace dealt {
       }
     }
   }
+  
+  template<int dim, int spacedim, int soldim>
+  void TSValuesBase<dim, spacedim, soldim>::get_function_hessians(
+      const Vector<double>                            &points,
+            std::vector< Tensor<2, space_dimension> > &hessians
+  ) const {
+    const std::vector<unsigned int>& IEN = 
+        this -> tria -> get_IEN_array(this -> last_cell);
+
+    for (unsigned int q = 0; q < this->n_quadrature_points(); q++) {
+      hessians[q] = Tensor<2, space_dimension>(); 
+      for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
+        const unsigned int index = IEN[i];
+        //std::cout << "i: " << i << " index: " << IEN[i] << " q: " << q << std::endl;
+        hessians[q] += points[index] * this -> shape_hessian(i, q);
+      }
+    }
+  }
+  
 
 #include "ts_values.inst.in"
 

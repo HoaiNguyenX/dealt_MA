@@ -892,53 +892,106 @@ void print_example(std::string ex, int ref, int order){
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 
       Minimal_Surface::ProblemShape::Tilted_Halfcircle,
-      Minimal_Surface::RefinementStrategy::Uniform,
-      Minimal_Surface::StepLengthStrategy::Constant
+      Minimal_Surface::RefinementStrategy::Uniform
     );
     problem.run();
-  } else if (ex == "minimal_a_uniform") {
-    Minimal_Surface::Minimal_Benchmark problem(
-      ref, order, 
-      Minimal_Surface::ProblemShape::Annulus,
-      Minimal_Surface::RefinementStrategy::Uniform,
-      Minimal_Surface::StepLengthStrategy::Constant
-    );
-    problem.run();
-  } else if (ex == "minimal_s_uniform") {
-    Minimal_Surface::Minimal_Benchmark problem(
-      ref, order, 
-      Minimal_Surface::ProblemShape::Square,
-      Minimal_Surface::RefinementStrategy::Uniform,
-      Minimal_Surface::StepLengthStrategy::Constant
-    );
-    problem.run();
-  } else if (ex == "minimal_c_adaptive") {
+  } else if (ex == "minimal_c_ad") {
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 
       Minimal_Surface::ProblemShape::Tilted_Halfcircle,
-      Minimal_Surface::RefinementStrategy::Adaptive,
-      Minimal_Surface::StepLengthStrategy::Constant
+      Minimal_Surface::RefinementStrategy::Adaptive
     );
     problem.run();
-  } else if (ex == "minimal_s_adaptive") {
+  } else if (ex == "minimal_s_uni") {
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 
       Minimal_Surface::ProblemShape::Square,
-      Minimal_Surface::RefinementStrategy::Adaptive,
-      Minimal_Surface::StepLengthStrategy::Constant
+      Minimal_Surface::RefinementStrategy::Uniform
     );
     problem.run();
-  } else if (ex == "minimal_a_adaptive") {
+  } else if (ex == "minimal_s_ad") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Square,
+      Minimal_Surface::RefinementStrategy::Adaptive
+    );
+    problem.run();
+  } else if (ex == "minimal_a_uni") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Annulus,
+      Minimal_Surface::RefinementStrategy::Uniform
+    );
+    problem.run();
+  } else if (ex == "minimal_a_ad") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Annulus,
+      Minimal_Surface::RefinementStrategy::Adaptive
+    );
+    problem.run();
+  } else if (ex == "minimal_as_uni") {
+    Minimal_Surface::Minimal_Benchmark problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Annulus,
+      Minimal_Surface::RefinementStrategy::Uniform,
+      Minimal_Surface::StepLengthStrategy::Constant,
+      true
+    );
+    problem.run();
+  } else if (ex == "minimal_as_ad") {
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 
       Minimal_Surface::ProblemShape::Annulus,
       Minimal_Surface::RefinementStrategy::Adaptive,
-      Minimal_Surface::StepLengthStrategy::Constant
+      Minimal_Surface::StepLengthStrategy::Constant,
+      true
     );
     problem.run();
-  } else 
 
 
+  // Nonlinear Poisson Problems
+
+
+
+  } else if (ex == "nonlinear2d_c1_uni") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_1
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_c1_ad") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_1,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_c2_uni") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_2
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_c2_ad") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_2,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+
+
+
+  } else
     Assert(false, ExcMessage("The chosen case is not implemented"));
 }
 

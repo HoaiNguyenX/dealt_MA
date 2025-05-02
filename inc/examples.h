@@ -27,7 +27,8 @@
 
 #include <minimal_surface_standard.h>
 #include <minimal_surface.h>
-//#include <nonlinear.h>
+#include <nonlinear_2d.h>
+//#include <nonlinear_3d.h>
 
 /*
  * Provides some example for BSpline Basis 
