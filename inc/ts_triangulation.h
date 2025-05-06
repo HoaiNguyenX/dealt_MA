@@ -480,36 +480,52 @@ namespace dealt {
 
     // Computes the weak residual for the nonlinear problem
     void nonlinear2d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-      std::map< cell_iterator, double >&  residuals
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+      std::map< cell_iterator, double >&            residuals
     ) const; // nonlinear2d_residual_error_estimate [1/2]
 
     void nonlinear2d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-            Vector<double>&               residuals
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+            Vector<double>&                         residuals
     ) const; // nonlinear2d_residual_error_estimate [2/2]
     
     // Computes the weak residual for the nonlinear problem
     void nonlinear3d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-      std::map< cell_iterator, double >&  residuals
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+      std::map< cell_iterator, double >&            residuals
     ) const; // nonlinear3d_residual_error_estimate [1/2]
 
     void nonlinear3d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-            Vector<double>&               residuals
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+            Vector<double>&                         residuals
     ) const; // nonlinear3d_residual_error_estimate [2/2]
 
     /// Computes the residual error for poisson-like problems of the form

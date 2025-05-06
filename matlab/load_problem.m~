@@ -441,8 +441,8 @@ if space_dimension == 3
     
     view([1 1 1]);
 else 
-    surf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
-    %contourf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
+    %surf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
+    contourf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
 end
 if nargin > 6
     caxis(ax, [minColorLimit, maxColorLimit]);
@@ -536,8 +536,6 @@ switch name
         xi = false;
     case 'spline'
         xi = false;
-    case 'grid_consecutive'
-        xi= false;
     otherwise
         xi = true;
 end % switch

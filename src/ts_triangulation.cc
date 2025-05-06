@@ -17,6 +17,8 @@ namespace dealt {
       std::map< cell_iterator, double >&  residuals
     ) const 
   {
+    Assert(this->is_bezier_mesh, ExcInvalidState());
+
     TSValues<dim, spacedim> ts_values(
       this, degrees,
       update_values |
@@ -180,11 +182,15 @@ namespace dealt {
   template<int dim, int spacedim>
   void TS_TriangulationBase<dim, spacedim>::
     nonlinear2d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-      std::map< cell_iterator, double >&  residuals
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+      std::map< cell_iterator, double >&            residuals
     ) const 
   {
     TSValues<dim, spacedim> ts_values(
@@ -255,7 +261,24 @@ namespace dealt {
 
             face_residuals[face -> index()] += 0.25 * g * g * face_values.JxW(q_index);
           } // for ( q_index )
-          // We dont have neumann bc here
+        } else if (face -> at_boundary()) {
+          const auto& bc = neumann_bc.find(face -> boundary_id());
+          if (bc == neumann_bc.end())
+            continue;
+
+          face_values.reinit(cell, f);
+          // If the face is at the boundary, compute the jump from
+          // the face's boundary id
+          for (const unsigned int q_index : face_values.quadrature_point_indices()){
+            double g = neumann_bc.at(face -> boundary_id())
+                          -> value(face_values.quadrature_point(q_index));    // u = g_N
+            for (const unsigned int i : face_values.dof_indices())
+              g -= solution(local_dof_indices[i]) *
+                      face_values.shape_grad(i, q_index) *
+                      face_values.normal_vector(q_index);
+
+            face_residuals[face -> index()] += g * g * face_values.JxW(q_index);
+          } // for ( q_index )
         } // if ( ... )
       } // for ( face )
     } // for ( cell )
@@ -337,21 +360,26 @@ namespace dealt {
   template<int dim, int spacedim>
   void TS_TriangulationBase<dim, spacedim>::
     nonlinear2d_residual_error_estimate(
-      const std::vector< unsigned int >&  degrees,
-      const int                           k,
-      const Function<space_dimension>*    rhs_fcn,
-      const Vector<double>&               solution,
-            Vector<double>&               residuals
+      const std::vector< unsigned int >&            degrees,
+      int                                           k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+            Vector<double>&                         residuals
     ) const 
   {
     Assert(residuals.size() == this->n_active_cells(),
             ExcDimensionMismatch(residuals.size(), this->n_active_cells()));
     // Pass arguments to previous function
     std::map< cell_iterator, double > res;
-    nonlinear_residual_error_estimate(
+    nonlinear2d_residual_error_estimate(
       degrees,
       k,
       rhs_fcn,
+      neumann_bc,
       solution,
       res);
 
@@ -4396,6 +4424,7 @@ namespace dealt {
 
 
    extraction_operators.clear();
+   face_operators.clear();
    const unsigned int nvc = GeometryInfo<dimension>::vertices_per_cell;
    const unsigned int nvf = GeometryInfo<dimension>::vertices_per_face;
    const unsigned int nfc = GeometryInfo<dimension>::faces_per_cell;
@@ -4465,7 +4494,6 @@ namespace dealt {
      } // for ( ts_ind )
 
      // Set the boundary indicators:
-     face_operators.clear();
      for (unsigned int f = 0; f < nfc; f++){
        i = 0;
        auto& local_face_operators = face_operators[bezier_cell];

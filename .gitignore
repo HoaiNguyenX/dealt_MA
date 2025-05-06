@@ -11,6 +11,7 @@ CMakeFiles/
 *.txt
 *.tex
 *.json
+*.png
 
 # Output of make
 tsplines

@@ -107,29 +107,38 @@ problem = '../out/poisson_benchmark_3d/';
 load_problem(data, problem, out_path, o, l, 1, 1, dim);
 
 
-%% Minimal surface halfcircle
-o = 3; l = 5; dim = 3; 
-out_path = './img_out/minimal_surface_halfcircle_';
-data = {'solution'};
-problem = '../out/minimal_surface_tilted_halfcircle_uniform/';
-load_problem(data, problem, out_path, o, l);
-
-
-%% Minimal surface square
+%% Minimal surface square 
 
 o = 2; l = 13; dim = 3; 
-out_path = './img_out/minimal_surface_square_';
+out_path = './img_out/minimal_surface_square_sol';
 data = {'solution'};
 problem = '../out/minimal_surface_square_adaptive/';
-load_problem(data, problem, out_path, o, l, 11);
+load_problem(data, problem, out_path, o, l, 1);
+
+
+%% Minimal surface square consecutive grid
+
+o = 2; l = 9; dim = 3; 
+out_path = './img_out/minimal_surface_square_consecutivegrid';
+data = {'grid_consecutive'};
+problem = '../out/minimal_surface_square_adaptive/';
+load_problem(data, problem, out_path, o, l, 1);
 
 
 %% Minimal surface catenoid
 
-o = 2; l = 1; dim = 3; 
+o = 2; l = 8; dim = 3; 
 out_path = './img_out/minimal_surface_catenoid_aa';
-data = {'grid'};
+data = {'solution'};
 problem = '../out/minimal_surface_annulus_adaptive/';
-load_problem(data, problem, out_path, o, l, 12);
+load_problem(data, problem, out_path, o, l, 14);
 colorbar
 
+%% Minimal surface catenoid singularity
+
+o = 2; l = 3; dim = 3; 
+out_path = './img_out/minimal_surface_catenoid_singular';
+data = {'solution'};
+problem = '../out/minimal_surface_annulus_sing_adaptive/';
+load_problem(data, problem, out_path, o, l, 14);
+colorbar

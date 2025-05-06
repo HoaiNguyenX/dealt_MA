@@ -7,7 +7,21 @@ namespace Minimal_Surface {
     const Point<2> &p,
     const unsigned int /*component*/
     ) const {
-    return std::sin(2 * numbers::PI * (p[0] + p[1]));
+    double a = 0.5;
+    double out = 0.;
+    //if (p[0] >= 0. && p[0] < 0.5)
+    //  out = a*p[0];
+    //else if(p[0] >= 0.5 && p[0] <= 1.)
+    //  out = a*(1 - p[0]);
+    if (p[0] >= 0. && p[0] < 0.25)
+      out = a*p[0];
+    else if (p[0] >= 0.25 && p[0] < 0.5)
+      out = a*(0.5 - p[0]);
+    else if(p[0] >= 0.5 && p[0] <= 0.75)
+      out = a*(p[0] - 0.5);
+    else if (p[0] > 0.75 && p[0] <= 1)
+      out = a*(1 - p[0]);
+    return out;
   }
 
   double Minimal_RHS::value(
@@ -24,7 +38,7 @@ namespace Minimal_Surface {
     , fe(order)
     , rhs_fcn()
   {
-    problem_out = OutputSetup("minimal_benchmark_standard/", fe.degree);
+    problem_out = OutputSetup("minimal_benchmark_standard_square/", fe.degree);
   }
 
 
@@ -100,8 +114,6 @@ namespace Minimal_Surface {
             const double coeff =
               1.0 / std::sqrt(1 + old_solution_gradients[q] *
                                     old_solution_gradients[q]);
-            std::cout << "old_solution_gradients: " << old_solution_gradients[q][0] << " " << old_solution_gradients[q][1] << std::endl;
-            std::cout << "coeff: " << coeff << std::endl;
  
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
               {
@@ -132,10 +144,6 @@ namespace Minimal_Surface {
         
       }
       //system_matrix.print_pattern(std::cout);
-        std::cout << "system_rhs: " << std::endl;
-        for (unsigned int i = 0; i < dof_handler.n_dofs(); i++)
-          std::cout << system_rhs(i) << " ";
-        std::cout << std::endl;
   }
  
  
@@ -152,7 +160,8 @@ namespace Minimal_Surface {
     preconditioner.initialize(system_matrix, 1.2);
  
     solver.solve(system_matrix, newton_update, system_rhs, preconditioner);
- 
+    std::cout << "        norm of newton_update = "
+              << newton_update.l2_norm() << std::endl;
     zero_constraints.distribute(newton_update);
  
     const double alpha = determine_step_length();
@@ -408,8 +417,8 @@ namespace Minimal_Surface {
     const unsigned int ref
   )
   {
-    GridGenerator::hyper_ball(triangulation);
-    //triangulation.refine_global(1);
+    GridGenerator::hyper_cube(triangulation);
+    triangulation.refine_global(1);
 
     std::cout << "    Setting system... " << std::endl;
   	setup_system();
@@ -417,7 +426,7 @@ namespace Minimal_Surface {
 
     //refinement cycle
     unsigned int cycle = 0;
-    while (cycle < 2)
+    while (cycle < ref)
     //while (triangulation.n_levels() < ref + 1 )
     {
   		std::cout << "Cycle " << cycle << ':' << std::endl;
@@ -430,7 +439,7 @@ namespace Minimal_Surface {
 
       std::cout << "  Initial residual: " << compute_residual(0) << std::endl;
 
-      for (unsigned int newton_iteration = 0; newton_iteration < 3; ++newton_iteration)
+      for (unsigned int newton_iteration = 0; newton_iteration < 500; ++newton_iteration)
       {
         //std::cout << "    N_Iteration: " << newton_iteration + 1 << std::endl;
         //std::cout << "    Assembling system ..." << std::endl;
@@ -438,7 +447,10 @@ namespace Minimal_Surface {
 
         //std::cout << "    Solving system..." << std::endl;
         solve();
-        std::cout << "  Residual: " << compute_residual(0) << std::endl;
+        double current_residual = compute_residual(0);
+        std::cout << "  Residual in step " << newton_iteration <<": " << current_residual << std::endl;
+        if (current_residual < 1e-5)
+          break;
       }
       
 

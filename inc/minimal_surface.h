@@ -46,6 +46,8 @@
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 #include <deal.II/lac/affine_constraints.h>
 
+#include <deal.II/lac/sparse_direct.h>
+
 #include <fstream>
 #include <iostream>
 
@@ -156,13 +158,10 @@ namespace Minimal_Surface {
     IPF_Data<2, 2>            data;
     TS_Triangulation<2, 2>    tria;
 
+    OutputSetup               problem_out;
 
     SparsityPattern           sparsity_pattern;
     SparseMatrix<double>      system_matrix;
-    //SparseMatrix<double>      jacobian_matrix;
-    //std::unique_ptr<SparseDirectUMFPACK> jacobian_matrix_factorization;
-
-    OutputSetup               problem_out;
 
     Vector<double>            system_rhs;
     Vector<double>            current_solution;
@@ -171,6 +170,8 @@ namespace Minimal_Surface {
     unsigned int              cycle;
 
     Minimal_SOL_catenoid      cat_sol_fcn;
+    double                    L2 = 0;
+    double                    H1 = 0;
 
     Minimal_DC_circle         circ_DC_fcn;
     Minimal_DC_square         square_DC_fcn;   
@@ -204,23 +205,16 @@ namespace Minimal_Surface {
     void   setup_system();
     void   assemble_system();
     void   impose_boundary_condition(ProblemShape shape);
+    void   solve_system();
+    void   estimate_and_mark();  
+
     double compute_residual_for_steplength(double alpha);
-    void   solve_system_constant();
+    double determine_step_length_const() {return 1;};
+    double determine_step_length_LS();
+    void   compute_h1_error();
 
-    void   output_system();
-    double determine_step_length_const() const {return 0.1;};
-    void   estimate_and_mark();   
+    void   output_system(); 
     void   print_numerical_solution(std::string addition = "");
-    void   output_results(const unsigned int refinement_cycle);
-
-    //TODO: step-77
-    void   compute_and_factorize_jacobian(const Vector<double> &evaluation_point);
-    void   compute_residual(const Vector<double> &evaluation_point,
-                          Vector<double>       &residual);
-    void   solve_system_LS(const Vector<double> &rhs,
-                           Vector<double>       &solution,
-                           const double /*tolerance*/);
-
   };
 
 } // namespace Minimal_Surface

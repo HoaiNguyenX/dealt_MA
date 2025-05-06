@@ -888,6 +888,21 @@ void print_example(std::string ex, int ref, int order){
   } else if (ex == "minimal_standard") {
     Minimal_Surface::Minimal_Benchmark_Standard problem(order);
     problem.run(ref);
+  // } else if (ex == "minimal_test_uni") {
+  //   Minimal_Surface::Minimal_Test problem(
+  //     ref, order
+  //   );
+  //   problem.run();
+  //   } else if (ex == "minimal_test_ad") {
+  //   Minimal_Surface::Minimal_Test problem(
+  //     ref, order, 
+  //     Minimal_Surface::RefinementStrategy::Adaptive
+  //   );
+  //   problem.run();
+
+
+
+
   } else if (ex == "minimal_c_uniform") {
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 

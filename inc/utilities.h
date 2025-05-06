@@ -39,7 +39,7 @@ namespace dealt {
     static void set_dim(const unsigned int dim);
 
     OutputSetup(){}
-  
+    
     OutputSetup(
       const std::string& problem,
       const unsigned int degree,
@@ -78,7 +78,22 @@ namespace dealt {
       const std::vector<std::string>& super_column_names ,
       const std::vector<std::vector<std::string>> super_columns
     );
-  
+
+    // With n_Newton_steps
+    void add_values_to_table(
+      const unsigned int  &level,
+      const unsigned int  &cycle,
+      const unsigned int  &n_cells,
+      const unsigned int  &n_dofs,
+      const unsigned int  &k_newton,
+      const double        &update_norm,
+      const double        &residual,
+      const double        &initial_residual,
+      const double        &L2,
+      const double        &H1,
+      const bool          &clear = false
+    );
+
     void add_values_to_table(
       const unsigned int  &level, 
       const unsigned int  &n_cells,
@@ -131,6 +146,7 @@ namespace dealt {
     dealii::ConvergenceTable    table;
     
     unsigned int        prev_level = 0;
+    unsigned int        prev_cycles = 0;
     unsigned int        cycles     = 1;
   
   } ;

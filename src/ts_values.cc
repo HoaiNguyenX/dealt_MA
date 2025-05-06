@@ -2838,6 +2838,8 @@ namespace dealt {
       for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
         const unsigned int index = IEN[i];
         values[q] += points[index] * this -> shape_value(i, q);
+        // print shape_value(i, q);
+        //std::cout << "current solution = " << points[index] << std::endl;
       }
     }
   }
@@ -2854,7 +2856,6 @@ namespace dealt {
       gradients[q] = Tensor<1, spacedim>(); 
       for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
         const unsigned int index = IEN[i];
-        //std::cout << "i: " << i << " index: " << IEN[i] << " q: " << q << std::endl;
         gradients[q] += points[index] * this -> shape_grad(i, q);
       }
     }
@@ -2872,7 +2873,6 @@ namespace dealt {
       hessians[q] = Tensor<2, space_dimension>(); 
       for (unsigned int i = 0; i < this->n_dofs_per_cell(); i++) {
         const unsigned int index = IEN[i];
-        //std::cout << "i: " << i << " index: " << IEN[i] << " q: " << q << std::endl;
         hessians[q] += points[index] * this -> shape_hessian(i, q);
       }
     }

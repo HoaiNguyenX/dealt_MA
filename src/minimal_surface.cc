@@ -36,12 +36,16 @@ namespace Minimal_Surface{
       else if (shape == ProblemShape::Annulus)
       {
         tria.degree_elevate(1, 1);
+        
         name += "_annulus";
+        if (singularity)
+          name += "_sing";
       }
       else if (shape == ProblemShape::Square)
         name += "_square";
       else
         AssertThrow(false, ExcNotImplemented());
+
 
 
       if (strategy == RefinementStrategy::Adaptive)
@@ -50,6 +54,7 @@ namespace Minimal_Surface{
         name += "_uniform";
       
       tria.degree_elevate_global(order);
+      tria.refine_global();
       tria.refine_bezier_elements();
       const auto& cell = tria.begin_active();
       const auto& CPs = tria.get_control_points(cell);
@@ -57,10 +62,57 @@ namespace Minimal_Surface{
 
       tria.prepare_assembly();
 
+      
+      // Set the output file name for annulus
+      const std::vector<std::string>& columns2 =
+        {"Level", "Cycles", "Cells", "DoFs", "k_{Newton}", "update_norm", "initial_residual", "last_residual", "L2", "H1"};
+      const std::vector<std::string>& tex_captions2 = 
+        {"Level", "Cycles", "# cells", "# dofs", "k_{Newton}", "update_norm", "initial_residual", "last_residual", "$L_2$-error", "$H^1$-error"};
+      const std::vector<bool>& scientific2 =
+        {false, false, true, true, true, true, true, true, true, true};
+      const std::vector<unsigned int> precision2 = 
+        {0, 0, 0, 0, 0, 4, 4, 4, 4, 4};
+      const std::vector<std::string>& super_column_names2 = 
+        {"Grid Info", "Newton", "Errors"};
+      const std::vector<std::vector<std::string>> super_columns2 =
+        {{"Level", "Cycles", "Cells", "DoFs"}, {"k_{Newton}", "update_norm", "initial_residual", "last_residual"}, {"L2", "H1"}};
+      
+      const std::vector<std::string>& columns =
+        {"Level", "Cycles", "Cells", "DoFs", "k_{Newton}", "update_norm", "initial_residual", "last_residual"};
+      const std::vector<std::string>& tex_captions = 
+        {"Level", "Cycles", "\\# cells", "\\# dofs", "k_{Newton}", "update_norm", "initial_residual", "last_residual"};
+      const std::vector<bool>& scientific =
+        {false, false, true, true, true, true, true, true};
+      const std::vector<unsigned int> precision = 
+        {0, 0, 0, 0, 0, 4, 4, 4};
+      const std::vector<std::string>& super_column_names = 
+        {"Grid Info", "Newton"};
+      const std::vector<std::vector<std::string>> super_columns =
+        {{"Level", "Cycles", "Cells", "DoFs"}, {"k_{Newton}", "update_norm", "initial_residual", "last_residual"}};
 
-
-      problem_out = OutputSetup(name, data.max_degree() + order); 
-
+      if (shape == ProblemShape::Annulus)
+      {
+        problem_out = OutputSetup(  name
+                                  , data.max_degree() + order
+                                  , columns2
+                                  , tex_captions2
+                                  , scientific2
+                                  , precision2
+                                  , super_column_names2
+                                  , super_columns2
+                                  ); 
+        //problem_out.table.set_auto_fill_mode(true);
+      }
+      else
+        problem_out = OutputSetup(  name
+                                  , data.max_degree() + order
+                                  , columns
+                                  , tex_captions
+                                  , scientific
+                                  , precision
+                                  , super_column_names
+                                  , super_columns
+                                  ); 
 
 
 
@@ -84,14 +136,14 @@ namespace Minimal_Surface{
         else if (shape == ProblemShape::Annulus) 
         {
           const Point<2>& c = face -> center();
-          if (std::fabs(c(1)) < 1e-15)
+          if (std::fabs(c(1)-1) < 1e-15)
             face -> set_boundary_id(Boundary::Dirichlet_0);
-          if (std::fabs(c(1) - 1) < 1e-15)
+          if (std::fabs(c(1)) < 1e-15)
             if (singularity)
               face -> set_boundary_id(Boundary::Dirichlet_a2);
             else
               face -> set_boundary_id(Boundary::Dirichlet_a1);
-          if (std::fabs(c(0) + 1) < 1e-15)
+          if (std::fabs(c(0)) < 1e-15)
             face -> set_boundary_id(Boundary::Periodic_left);
           if (std::fabs(c(0) - 1) < 1e-15)
             face -> set_boundary_id(Boundary::Periodic_right);
@@ -117,7 +169,6 @@ namespace Minimal_Surface{
 
     std::cout << "Setting up system ... " << std::endl;
     unsigned int n_global_dofs = tria.n_active_splines();
-    system_rhs.reinit(n_global_dofs);
     current_solution.reinit(n_global_dofs);
     newton_update.reinit(n_global_dofs);
   
@@ -137,10 +188,8 @@ namespace Minimal_Surface{
     // Free superfluous space
     sparsity_pattern.compress();
     system_matrix.reinit(sparsity_pattern);
+    system_rhs.reinit(n_global_dofs);
 
-    //TODO: step-77
-    //jacobian_matrix.reinit(sparsity_pattern);
-    //jacobian_matrix_factorization.reset();
 
   } // setup_system
 
@@ -151,9 +200,13 @@ namespace Minimal_Surface{
   
     // Setup initial tables that store the bernstein values / grads / hessians.
   
+    //reinit the system matrix and rhs since setup is not called in newton loop
+    system_rhs = 0;
+    system_matrix = 0;
+
     std::vector< unsigned int > degrees = tria.get_degree();
-    degrees[0] = degrees[0]  + 1;
-    degrees[1] = degrees[1]  + 1;
+    degrees[0] = degrees[0] + 2;
+    degrees[1] = degrees[1] + 2;
 
     TSValues<2> ts_values(
         &tria,
@@ -167,7 +220,7 @@ namespace Minimal_Surface{
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
     Vector<double>     cell_rhs(dofs_per_cell);
 
-
+    const double power = 0.5;
 
     for (const auto& cell : tria.active_cell_iterators())
     {
@@ -187,10 +240,8 @@ namespace Minimal_Surface{
       for (const unsigned int q : ts_values.quadrature_point_indices())
       {
         // coefficient a_n depending on old solution gradient for readability
-        const double coeff = 1. / std::sqrt(1 + old_gradient[q] * old_gradient[q]);
-        //const double coeff = 1. / 1 + old_gradient[q] * old_gradient[q];
-        //std::cout << "old_gradient: " <<old_gradient[q][0] << " " << old_gradient[q][1] << std::endl;
-        //std::cout << "coeff: " << coeff << std::endl;
+        const double coeff = 1. / std::pow(1 + old_gradient[q] * old_gradient[q],power);
+
 
         // Build the cell matrix and rhs
         for (const unsigned int i : ts_values.dof_indices())
@@ -203,8 +254,9 @@ namespace Minimal_Surface{
                        * coeff                         //   * a_n
                        * ts_values.shape_grad(j, q))   //   * \nabla \phi_j)
                       -                                //  -
-                      (ts_values.shape_grad(i, q)      //  (\nabla \phi_i
-                       * coeff * coeff * coeff         //   * a_n^3
+                      (2 * power
+                       * ts_values.shape_grad(i, q)      //  (\nabla \phi_i
+                       * std::pow(coeff, power+1)         //   * a_n^3
                        * (ts_values.shape_grad(j, q)   //   * (\nabla \phi_j
                             * old_gradient[q])         //       * \nabla u_n)
                          * old_gradient[q]))           //     * \nabla u_n))
@@ -256,113 +308,6 @@ namespace Minimal_Surface{
 
   } // assemble_system
 
-
-  //TODO: step-77
-  /*
-  void Minimal_Benchmark::compute_and_factorize_jacobian(
-    const Vector<double> & evaluation_point)
-  {
-    //std::cout << "Assembling system matrix ... " << std::endl;
-  
-    // Setup initial tables that store the bernstein values / grads / hessians.
-  
-    std::vector< unsigned int > degrees = tria.get_degree();
-    degrees[0] = degrees[0]  + 1;
-    degrees[1] = degrees[1]  + 1;
-
-    jacobian_matrix = 0;
-
-    TSValues<2> ts_values(
-        &tria,
-        degrees,
-        update_gradients |
-        update_quadrature_points |
-        update_JxW_values);
-
-
-    const unsigned int dofs_per_cell = ts_values.n_dofs_per_cell();
-    FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-    Vector<double>     cell_rhs(dofs_per_cell);
-
-
-
-    for (const auto& cell : tria.active_cell_iterators())
-    {
-      // Get the Bernstein values on the cell
-      ts_values.reinit(cell);
-
-      // Get the old_solution_gradient for the current cell
-      std::vector< Tensor<1, 2> > evaluation_point_gradient(
-                                    ts_values.n_quadrature_points_per_cell());
-      ts_values.get_function_gradients(evaluation_point, 
-                                        evaluation_point_gradient);
-
-
-      // Reset the cell matrix
-      cell_matrix       = 0;
-
-      // Quadrature sum:
-      for (const unsigned int q : ts_values.quadrature_point_indices())
-      {
-        // coefficient a_n depending on old solution gradient for readability
-        const double coeff = 1. / std::sqrt(1 + evaluation_point[q] 
-                                            * evaluation_point[q]);
-
-        // Build the cell matrix and rhs
-        for (const unsigned int i : ts_values.dof_indices())
-        {
-          for(const unsigned int j : ts_values.dof_indices())
-            cell_matrix(i,j) +=
-                    (((ts_values.shape_grad(i, q)      // ((\nabla \phi_i
-                       * coeff                         //   * a_n
-                       * ts_values.shape_grad(j, q))   //   * \nabla \phi_j)
-                      -                                //  -
-                      (ts_values.shape_grad(i, q)      //  (\nabla \phi_i
-                       * coeff * coeff * coeff         //   * a_n^3
-                       * (ts_values.shape_grad(j, q)   //   * (\nabla \phi_j
-                            * evaluation_point_gradient[q])  //       * \nabla u_n)
-                         * evaluation_point_gradient[q]))    //     * \nabla u_n))
-                     * ts_values.JxW(q));              // * dx             
-            //std::cout << "cell_matrix: " << cell_matrix(i,j) << std::endl;
-            
-
-
-        } // for ( i )
-      } // for ( q )
-
-      
-      // Add the values to the system
-      std::vector< unsigned int > local_dof_indices =
-              tria.get_IEN_array(cell);
-      
-      jacobian_matrix.add(local_dof_indices, cell_matrix);
-    } // for ( cell )
-
-    unsigned int n_global_dofs = tria.n_active_splines();
-    const auto& boundary_dofs = tria.get_boundary_dofs();
-
-    // Impose zero Dirichlet boundary condition to the system for
-    // all boundary dofs
-    for (const auto& [boundary, dofs] : boundary_dofs){
-      for (const auto& dof : dofs){
-
-        for (unsigned int i = 0; i < n_global_dofs; i++){
-          jacobian_matrix.set(i, dof, 0.);
-          jacobian_matrix.set(dof, i, 0.);
-        }
-        jacobian_matrix.set(dof, dof, 1.);
-        //std::cout << "setting boundary at dof: " << dof << std::endl;
-      }
-    }
-
-    // print system_matrix and system_rhs
-    //std::cout << "System rhs: " << std::endl;
-    //for (unsigned int i = 0; i < n_global_dofs; i++)
-    //  std::cout << system_rhs(i) << " ";
-    //std::cout << std::endl;
-
-  } // compute_and_factorize_jacobian
-  */
 
 
   
@@ -491,98 +436,53 @@ namespace Minimal_Surface{
       current_solution,
       system_rhs
     );
+
+    typename std::map<types::global_dof_index, double>::const_iterator
+      dof  = boundary_values.begin(),
+      endd = boundary_values.end();
+    for (; dof != endd; ++dof)
+      {
+        Assert(dof->first < n_global_dofs, ExcInternalError());
+        current_solution(dof->first) = dof->second;
+      }
     
   } // impose_boundary_condition
 
-  /*
-  // TODO: step-77
-  void Minimal_Benchmark::compute_residual(
-    const Vector<double> &evaluation_point,
-    Vector<double>       &residual)
-  {
-    double n_global_dofs = tria.n_active_splines();
-    Vector<double> residuals(n_global_dofs);
-    std::vector<unsigned int> degrees = tria.get_degree();
-    degrees[0] = degrees[0]  + 1;
-    degrees[1] = degrees[1]  + 1;
-
-    TSValues<2> ts_values(
-        &tria,
-        degrees,
-        update_values |
-        update_gradients |
-        update_quadrature_points |
-        update_JxW_values);
-
-    const unsigned int nvc = GeometryInfo<2>::vertices_per_cell;
-    //const unsigned int nvf = GeometryInfo<dim>::vertices_per_face;
-    
-    
-    // Loop over all cells
-    for (const auto& cell : tria.active_cell_iterators()) 
-    {
-
-      std::vector< unsigned int > local_dof_indices = tria.get_IEN_array(cell);
-      ts_values.reinit(cell);
-
-      // get old solution gradient
-      std::vector< Tensor<1, 2> > evaluation_point_grad(ts_values.n_quadrature_points_per_cell());
-      ts_values.get_function_gradients(evaluation_point, evaluation_point_grad);
-
-      // Quadrature sum:
-      for (const unsigned int q : ts_values.quadrature_point_indices())
-      {
-        // coefficient a_n depending on old solution gradient for visibilities
-        const double coeff = 1. / std::sqrt(1 + evaluation_point_grad[q] 
-                                            * evaluation_point_grad[q]);
-
-        // Fehler aber keine Ahnung warum bei ts_values.dof_indices()
-        for (const unsigned int i : ts_values.dof_indices())
-          residual(i) += (ts_values.shape_grad(i, q)    // \nabla \phi_i
-                               * coeff                        // * a_n
-                               * evaluation_point_grad[q])    // * \nabla u_n
-                               * ts_values.JxW(q);            // * dx
-      } // for ( q )
-    
-    } // for (cell)
-
-    // Compute the L2 norm of the residual
-    std::cout << " norm = " << residual.l2_norm() << std::endl;
-
-  } // compute_residual
-  */
 
 
-  void Minimal_Benchmark::solve_system_constant()
+  void Minimal_Benchmark::solve_system()
   {
     // std::cout << "Solving system ... " << std::endl;
 
-    SolverControl            solver_control(1e3,
-                                 1e-5);
-    SolverCG<Vector<double>> solver(solver_control);
+    //SolverControl            solver_control(1e3,
+    //                             1e-5);
+    //SolverCG<Vector<double>> solver(solver_control);
+    //
+    //PreconditionJacobi<SparseMatrix<double>> preconditioner;
+    //preconditioner.initialize(system_matrix);
+    //
+    //solver.solve(system_matrix, newton_update, system_rhs, preconditioner);
 
-    PreconditionJacobi<SparseMatrix<double>> preconditioner;
-    preconditioner.initialize(system_matrix);
+    // Solve with direct UMFPACK
+    newton_update = system_rhs;
+    SparseDirectUMFPACK A_direct;
+    A_direct.solve(system_matrix, newton_update);
 
-    solver.solve(system_matrix, newton_update, system_rhs, preconditioner);
-
-    // print newton_update
-    //std::cout << "newton_update: " << std::endl;
-    //for (unsigned int i = 0; i < tria.n_active_splines(); i++)
-    //  std::cout << newton_update[i] << " ";
-    //std::cout << std::endl;
 
     // Add the update to the current solution
     double alpha = determine_step_length_const();
+    //double alpha = determine_step_length_LS();
+    //std::cout << "alpha = " << alpha << std::endl;
     current_solution.add(alpha, newton_update);
 
     // Add current solution values to the Tsplines data structure
     const auto& splines = tria.get_splines();
     for (unsigned int i = 0; i < tria.n_active_splines(); i++)
         splines[i] -> set_solution(current_solution[i]);
-
-
   } // solve_system
+
+
+
 
 
   double Minimal_Benchmark::compute_residual_for_steplength(double alpha)
@@ -641,6 +541,16 @@ namespace Minimal_Surface{
 
     } // for (cell)
 
+    //zero_constrains.distribute_local_to_global(cell_residuals, 
+    //                                          local_dof_indices,residual_norm);
+    // Set zero Dirichlet boundary condition to the residual according to deal.II step-15
+    const auto& boundary_dofs = tria.get_boundary_dofs();
+    if (boundary_dofs.find(Boundary::Dirichlet_0) 
+          != boundary_dofs.end())
+      for (const auto& dof : boundary_dofs.at(Boundary::Dirichlet_0))
+        cell_residuals[dof] = 0.;
+
+
     // Compute the L2 norm of the residual
     double residual_norm = 0.;
     for (unsigned int i = 0; i < n_global_dofs; ++i)
@@ -649,6 +559,31 @@ namespace Minimal_Surface{
     return std::sqrt(residual_norm);
   } // compute_residual_for_steplength
 
+
+
+  double Minimal_Benchmark::determine_step_length_LS()
+  { 
+    // A simple backtracking line search with Armijo condition with
+    // the residual norm as surrogate
+    double alpha = 1.0;
+    const double beta = 0.9;
+    const double c = 5e-1;
+    const double tol = 1e-6;
+    const double alpha_min = 1e-1;
+    
+    double old_residual = compute_residual_for_steplength(0);
+    double new_residual = 1.;
+    while (new_residual > tol && alpha > alpha_min)
+    {
+      new_residual = compute_residual_for_steplength(alpha);
+      //std::cout << "new_residual = " << new_residual << ", old_residual = " << old_residual << std::endl;
+      if (new_residual < (1 - c * alpha) * old_residual)
+        break;
+      alpha *= beta;
+    }
+
+    return alpha;
+  } // determine_step_length  
 
   void Minimal_Benchmark::estimate_and_mark()
   {
@@ -821,18 +756,12 @@ namespace Minimal_Surface{
 
     // Print the table to a file preemptively
     // output to .txt
-    problem_out.write_table_text();
-    problem_out.write_table_tex();
+
 
     // print the difference pointwise for each cell
     std::cout << " ... output to files done!" << std::endl;
     
-
-
-
-
-
-    
+    // Print the grid to a .svg file
     GridOutFlags::Svg svg_flags;
     svg_flags.coloring = GridOutFlags::Svg::Coloring::none;
     // svg_flags.label_level_number  = true;
@@ -851,10 +780,70 @@ namespace Minimal_Surface{
   } // output_system
 
 
+  void Minimal_Benchmark::compute_h1_error()
+  {
+    // std::cout << "Computing H1-error at Level "
+    //           << tria.n_levels() - 1
+    //           << " with degree "
+    //           << data.max_degree() + order
+    //           << " ... " << std::endl;
+  
+    std::vector< unsigned int > degrees = tria.get_degree();
+    degrees[0] = (degrees[0] * degrees[0]) + 1;
+    degrees[1] = (degrees[1] * degrees[1]) + 1;
+
+    TSValues<2> ts_values(
+        &tria,
+        degrees,
+        update_values |
+        update_gradients |
+        update_quadrature_points |
+        update_hessians |
+        update_JxW_values);
+  
+  
+    double h1 = 0;
+    double l2 = 0;
+  
+    for (const auto& cell : tria.active_cell_iterators()){
+      // Get the Bernstein values on the cell
+      ts_values.reinit(cell);
+  
+      std::vector<unsigned int> local_dof_indices = tria.get_IEN_array(cell);
+  
+      // Quadrature sum:
+      for (const unsigned int q_index : ts_values.quadrature_point_indices()){
+        // Map the quadrature point from real cell to parametric cell
+        const Point<2>& mapped_q = ts_values.quadrature_point(q_index);
+  
+        // Get the value of the approximation
+        double u_diff = cat_sol_fcn.value(mapped_q);
+        for (const unsigned int i : ts_values.dof_indices())
+          u_diff -= (current_solution(local_dof_indices[i]) *
+                      ts_values.shape_value(i, q_index));
+  
+        // Build the gradient value at quadrature point:
+        Tensor<1, 2> grad_u_diff = cat_sol_fcn.gradient(mapped_q);
+        for (const unsigned int i : ts_values.dof_indices())
+          grad_u_diff -= ( current_solution(local_dof_indices[i]) *
+                           ts_values.shape_grad(i, q_index));
+  
+        double dx = ts_values.JxW(q_index);
+        h1 += (( grad_u_diff * grad_u_diff ) * dx) ;
+        l2 += ((      u_diff * u_diff      ) * dx);
+      } // for ( q_index )
+    } // for ( cell )
+
+    L2 = std::sqrt(l2);
+    H1 = std::sqrt(l2 + h1);
+  
+  } // compute_h1_error
+
+
   void Minimal_Benchmark::print_numerical_solution(std::string addition)
   {
     // Number of points to evaluate per direction
-    const unsigned int N = 25;
+    const unsigned int N = 26;
 
     // Declare a container to store the values 
     FullMatrix<double> B_num(3,N*N);
@@ -902,11 +891,15 @@ namespace Minimal_Surface{
   void Minimal_Benchmark::run()
   {
     std::cout << "Running benchmark ... " << std::endl;
+    unsigned int old_level = 0;
 
     setup_system();
-    // Set initial solution u_0 to zero. //TODO: Brauche ich das oder ist schon default?
-    for (unsigned int i = 0; i < current_solution.size(); ++i)
-      current_solution[i] = 0.;
+    // Set initial solution u_0 to zero. 
+
+    Vector<double> current_residuals;
+    current_residuals = 0.;
+    current_solution = 0.;
+    const std::vector<unsigned int>& degrees = tria.get_degree();
 
     // boundary condition on the first solution u_0
     impose_boundary_condition(this -> problem_shape);
@@ -917,99 +910,116 @@ namespace Minimal_Surface{
     while (tria.n_levels() < this -> ref + 1)
     {
       std::cout << "  Refinement cycle " << cycle << ':' << std::endl;
-
+      
+      current_residuals.reinit(tria.n_active_cells());
+      tria.minimal_residual_error_estimate(
+                    {degrees[0]*degrees[0] + 1,
+                     degrees[1]*degrees[1] + 1},
+                     current_solution,
+                     current_residuals
+                     );
       if (cycle != 0)
       {
         estimate_and_mark();
         setup_system();
         tria.transfer_solution(current_solution);
         impose_boundary_condition(this -> problem_shape);
+
       }
 
       std::cout << " n_levels: " << tria.n_levels() << std::endl;
-      print_numerical_solution();
-      //output_system();
-      std::cout << "    Initial residual: " << compute_residual_for_steplength(0) << std::endl;
+      
+
+
+
+      double initial_residual = current_residuals.l2_norm();
+      std::cout << "    Initial norm of estimator: " << initial_residual << std::endl;
+
+
+      std::string name_norm =  problem_out.dat.string() 
+                            + "norm_l" 
+                            + std::to_string(tria.n_levels() - 1) 
+                            + ".dat";
+      // outputs iteration and norms
+      std::ofstream norm_file(name_norm.c_str(), std::ios::app); // Open file in append mode
+
 
       unsigned int newton_iteration = 0;
-      double last_norm = 0., current_norm = 1., norm_diff = 1.;
+      double  current_norm = 1., current_residual = 1.;
       do {
         // solve system with zero boundary condition
         assemble_system();
+        solve_system();
+        current_residuals = system_rhs;
+        
 
-        if (step_length_strategy == StepLengthStrategy::Constant)
-          solve_system_constant();
 
-
-        //TODO: step-77
-        else if (step_length_strategy == StepLengthStrategy::LineSearch)
-        {
-          solve_system_constant();
-          //{
-          //  typename SUNDIALS::KINSOL<Vector<double>>::AdditionalData
-          //    additional_data;
-          //  additional_data.function_tolerance = target_tolerance;
-          //
-          //  SUNDIALS::KINSOL<Vector<double>> nonlinear_solver(additional_data);
-          //  
-          //  nonlinear_solver.reinit_vector = [&](Vector<double> &x) {
-          //    x.reinit(tria.n_active_splines());
-          //  };
-          //  
-          //  nonlinear_solver.residual =
-          //    [&](const Vector<double> &evaluation_point,
-          //        Vector<double>       &residual) {
-          //      compute_residual(evaluation_point, residual);
-          //    };
-          //  
-          //  nonlinear_solver.setup_jacobian =
-          //    [&](const Vector<double> &current_u,
-          //        const Vector<double> & /*current_f*/) {
-          //      compute_and_factorize_jacobian(current_u);
-          //    };
-          //  
-          //  nonlinear_solver.solve_with_jacobian = [&](const Vector<double> &rhs,
-          //                                           Vector<double>       &dst,
-          //                                           const double tolerance) {
-          //    solve(rhs, dst, tolerance);
-          //  };
-          //
-          //  nonlinear_solver.solve(current_solution);
-          //}
-        }
-        else
-          AssertThrow(false, ExcNotImplemented());
-
-        print_numerical_solution();
-        //output_system();
-
-        //current_norm = compute_residual_for_steplength(0);
-        //std::cout << "    Residual of N_It " << newton_iteration+1 
-        //          << ": " << current_norm << std::endl;
+        current_residual = current_residuals.l2_norm();
+        std::cout << "Residual of N_It " << newton_iteration+1 
+                  << ":   " << std::fixed << std::setprecision(8) << current_residual;
 
         current_norm = newton_update.l2_norm();
-        std::cout << "L2 ||update_n+1|| in N_It " << newton_iteration+1 
-                  << ": " << current_norm << std::endl;
+        std::cout << "      L2 ||update_n+1|| " 
+                  << ":   " << std::fixed << std::setprecision(8) << current_norm << std::endl;
 
-        //norm_diff = std::fabs(last_norm - current_norm);
-        //std::cout << "    discr. ||update_{n+1} - update_n|| in N_It " << newton_iteration+1 
-        //          << ": " << norm_diff << std::endl;
-
-        last_norm = current_norm;
+        if (norm_file.is_open()) {
+          norm_file << newton_iteration + 1 << " " // Add iteration number for reference
+              << std::fixed << std::setprecision(8) << current_residual << " "
+              << std::fixed << std::setprecision(8) << current_norm << "\n";
+        } else 
+            std::cerr << "Error: Unable to open file for writing.\n";
+        
+        
+        
         newton_iteration++;
 
       } // do ( ... )
-      while (newton_iteration < 500
-             //&& norm_diff > 1e-4 
-             && current_norm > 1e-5
+      while (newton_iteration < 200
+             && current_norm > 1e-8
             );
-      std::cout << "    Last residual: " << compute_residual_for_steplength(0) << std::endl;
+
+      norm_file.close(); // Close the file
+      current_residuals.reinit(tria.n_active_cells());
+      tria.minimal_residual_error_estimate(
+                    {degrees[0]*degrees[0] + 1,
+                     degrees[1]*degrees[1] + 1},
+                     current_solution,
+                     current_residuals
+                     );
+      std::cout << "    Last norm of estimator: " 
+                << current_residuals.l2_norm() << std::endl;
+      std::cout << "    Last residual: " 
+                << std::fixed << std::setprecision(5)
+                << current_residual << "\n\n"<< std::endl;
 
       std::cout << "Outputting system after last newton iteration ..." << std::endl;
-      if (cycle != 0)
+      if (cycle != 0 && tria.n_levels() != old_level)
       {
-        output_system();
+        print_numerical_solution();
+        if (this->problem_shape == ProblemShape::Annulus)
+        {
+          compute_h1_error();
+        }
+        std::cout << " Print table in cycle: " << cycle << std::endl; 
+        problem_out.add_values_to_table(
+          tria.n_levels() - 1,
+          cycle,
+          tria.n_active_cells(),
+          tria.n_active_splines(),
+          newton_iteration,
+          current_norm,
+          current_residual,
+          initial_residual,
+          L2,
+          H1
+        );
+        // Output the table to a file preemptively
+        problem_out.write_table_text();
+        problem_out.write_table_tex();
+        if (tria.n_levels() < 13)
+          output_system();
       }
+      old_level = tria.n_levels();
       cycle++;
     }
     std::cout << " ... done!" << std::endl;
@@ -1045,7 +1055,9 @@ double Minimal_DC2_catenoid::value(
     const Point<2>&     /*p*/, 
     const unsigned int /* component */
   ) const {
-    double out = 2;    // Height of the inner boundary
+    //double out = 2;    // Height of the inner boundary for r = 1.5ish
+    //double out = 1.68508;    // Height of r= 1.05
+    double out = 1.55643;    // Height of r= 1.1
     return out;
   } // value_DC2_Catenoid
 
@@ -1200,31 +1212,28 @@ double Minimal_DC2_catenoid::value(
 
     // define the knot vectors
     const double R = 3.762196;    // Outer radius 
-    const double r = (singularity == true) ? 1 : 1.54308;   // inner radius 1 < r < 3.7622
+    const double r = (singularity == true) ? 1.1 : 1.54308;   // inner radius 1 < r < 3.7622
     kv = std::vector< std::vector< double > >(2);
-    kv[0] = {-1, -1, -1 , -0.5, 0, 0, 0.5, 1, 1, 1};
+    kv[0] = { 0, 0, 0, 0.5, 1, 1, 1};
     kv[1] = { 0, 0, 1, 1};
 
     // define the control points vector
-    cps = std::vector< Point<3> >(14);
+    cps = std::vector< Point<3> >(8);
 
     unsigned int ind = 0; 
     
-    cps[ind++] = Point<2 + 1>(-1.*R ,  0. , 1. );
-    cps[ind++] = Point<2 + 1>(-0.5*R,  0.5*R, 0.5);
-    cps[ind++] = Point<2 + 1>( 0.5*R,  0.5*R, 0.5);
-    cps[ind++] = Point<2 + 1>( 1.*R ,  0. , 1. );
-    cps[ind++] = Point<2 + 1>( 0.5*R, -0.5*R, 0.5);
-    cps[ind++] = Point<2 + 1>(-0.5*R, -0.5*R, 0.5);
-    cps[ind++] = Point<2 + 1>(-1.*R ,  0. , 1. );
-
     cps[ind++] = Point<2 + 1>(-1.*r ,  0.   , 1. );
     cps[ind++] = Point<2 + 1>(-0.5*r,  0.5*r, 0.5);
-    cps[ind++] = Point<2 + 1>( 0.5*r,  0.5*r, 0.5);
-    cps[ind++] = Point<2 + 1>( 1.*r ,  0.   , 1. );
-    cps[ind++] = Point<2 + 1>( 0.5*r, -0.5*r, 0.5);
-    cps[ind++] = Point<2 + 1>(-0.5*r, -0.5*r, 0.5);
-    cps[ind++] = Point<2 + 1>(-1.*r ,  0.   , 1. );
+    cps[ind++] = Point<2 + 1>(0.5*r,  0.5*r, 0.5);
+    cps[ind++] = Point<2 + 1>(1.*r ,  0.   , 1. );
+
+    cps[ind++] = Point<2 + 1>(-1.*R ,  0. , 1. );
+    cps[ind++] = Point<2 + 1>(-0.5*R,  0.5*R, 0.5);
+    cps[ind++] = Point<2 + 1>(0.5*R,  0.5*R, 0.5);
+    cps[ind++] = Point<2 + 1>(1.*R ,  0. , 1. );
+
+
+
 
     
     

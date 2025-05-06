@@ -193,6 +193,53 @@ namespace dealt {
     }
   }
   
+  // For newton steps
+  void OutputSetup::add_values_to_table(
+    const unsigned int  &level,
+    const unsigned int  &cycle,
+    const unsigned int  &n_cells,
+    const unsigned int  &n_dofs,
+    const unsigned int  &k_newton,
+    const double        &update_norm,
+    const double        &residual,
+    const double        &initial_residual,
+    const double        &L2,
+    const double        &H1,
+    const bool          &clear
+  ) {
+    // if (prev_level != 0 && level == prev_level) {
+    //   //remove row from table
+    //   table.clear_current_row(); 
+    //   cycles++;
+    // } else {
+    //   prev_level = level;
+    //   cycles = 1;
+    // }
+
+if (prev_level != 0 && level == prev_level) {
+       //remove row from table
+       table.clear_current_row();
+       cycles++;
+     } else {
+       prev_level = level;
+
+     }
+
+    cycles = cycle - prev_cycles;
+    prev_cycles = cycle;
+    // Add values to table
+    table.add_value("Level",  level);
+    table.add_value("Cells",  n_cells);
+    table.add_value("DoFs",   n_dofs);
+    table.add_value("Cycles", cycles);
+    table.add_value("k_{Newton}",   k_newton);
+    table.add_value("update_norm", update_norm);
+    table.add_value("initial_residual", initial_residual);
+    table.add_value("last_residual", residual);
+    table.add_value("L2", L2);
+    table.add_value("H1", H1);
+  }
+
   void OutputSetup::add_values_to_table(
     const unsigned int  &level, 
     const unsigned int  &n_cells,

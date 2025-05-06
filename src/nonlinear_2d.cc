@@ -26,12 +26,27 @@ namespace Nonlinear {
     tria.coarsen_bezier_elements();
 
     tria.prepare_assembly();
+    
 
     std::string name = "nonlinear2d";
     if (strategy == RefinementStrategy::Adaptive)
       name += "_adaptive/";
     else
       name += "_uniform/";
+    
+    if (problem_case == ProblemCase::Case_1)
+    {
+      name += "case_1/";
+      rhs_fcn = new Nonlinear2D_RHS1();
+    }
+    else if (problem_case == ProblemCase::Case_2)
+      name += "case_2/";
+    else if (problem_case == ProblemCase::Case_3)
+      name += "case_3/";
+    
+    else
+      AssertThrow(false, ExcNotImplemented());
+
 
 
     
@@ -51,7 +66,7 @@ namespace Nonlinear {
       else
         face -> set_boundary_id(Boundary::None);
 
-      
+
     } // for ( face )
 
   } // constructor
@@ -86,7 +101,10 @@ namespace Nonlinear {
     void Nonlinear2D_Benchmark::assemble_system()
   {
     //std::cout << "Assembling system matrix ... " << std::endl;
-  
+
+    system_matrix = 0;
+    system_rhs    = 0;
+
     // Setup initial tables that store the bernstein values / grads / hessians.
   
     std::vector< unsigned int > degrees = tria.get_degree();
@@ -131,7 +149,7 @@ namespace Nonlinear {
       cell_matrix       = 0;
       cell_rhs          = 0;
 
-      int k = exponent;
+      const int k = exponent;
 
       // Quadrature sum:
       for (const unsigned int q : ts_values.quadrature_point_indices())
@@ -158,12 +176,12 @@ namespace Nonlinear {
 
           // Since the parametric and physical domain coincide, there is no need for mapping
           const Point<2>& mapped_q = ts_values.quadrature_point(q);
-          const double rhs = rhs_fcn.value(mapped_q);
+          const double rhs = rhs_fcn -> value(mapped_q);
           
           cell_rhs(i) += (ts_values.shape_value(i, q)              // \phi_i
                             * (rhs                                 //  * f
-                               - std::pow(old_value[q], k)));      //    - u_n^k
-
+                               - std::pow(old_value[q], k)))      //    - u_n^k
+                          * ts_values.JxW(q);
         } // for ( i )      
       } // for ( q )
 
@@ -173,13 +191,16 @@ namespace Nonlinear {
         for (unsigned int f = 0; f < GeometryInfo<2>::faces_per_cell; f++)
         {
           if (cell -> face(f) -> at_boundary()
-              && cell -> face(f) -> boundary_id() == Boundary::Neumann)
+              && cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_1)
           {
             face_values.reinit(cell, f);
             //TODO: Warum muss hier nicht auf param domain gemappt werden? So wie für rhs?
             for (const unsigned int q : face_values.quadrature_point_indices())
             {
-              const double g_value = nc_fcn.value(face_values.quadrature_point(q));
+              double g_value;
+              if ( problem_case == ProblemCase::Case_1)
+                g_value = nc1_fcn.value(face_values.quadrature_point(q));
+
               for (const unsigned int i : face_values.dof_indices())
                 cell_rhs(i) +=  (face_values.shape_value(i, q)    //  \phi_i
                                   * 2 * g_value)                  //  * 2 * g
@@ -327,7 +348,7 @@ namespace Nonlinear {
       ts_values.get_function_values(current_solution, old_value);
 
 
-      int k = exponent;
+      const int k = exponent;
 
       // Quadrature sum:
       for (const unsigned int q : ts_values.quadrature_point_indices())
@@ -339,7 +360,7 @@ namespace Nonlinear {
 
           // Since the parametric and physical domain coincide, there is no need for mapping
           const Point<2>& mapped_q = ts_values.quadrature_point(q);
-          const double rhs = rhs_fcn.value(mapped_q);
+          const double rhs = rhs_fcn -> value(mapped_q);
           
           cell_residuals(i) += (ts_values.shape_value(i, q)             // \phi_i
                                 * (rhs                                  //  * f
@@ -354,13 +375,13 @@ namespace Nonlinear {
         for (unsigned int f = 0; f < GeometryInfo<2>::faces_per_cell; f++)
         {
           if (cell -> face(f) -> at_boundary()
-              && cell -> face(f) -> boundary_id() == Boundary::Neumann)
+              && cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_1)
           {
             face_values.reinit(cell, f);
             //TODO: Warum muss hier nicht auf param domain gemappt werden? So wie für rhs?
             for (const unsigned int q : face_values.quadrature_point_indices())
             {
-              const double g_value = nc_fcn.value(face_values.quadrature_point(q));
+              const double g_value = nc1_fcn.value(face_values.quadrature_point(q));
               for (const unsigned int i : face_values.dof_indices())
                 cell_residuals(i) +=  (face_values.shape_value(i, q)    //  \phi_i
                                   * 2 * g_value)                  //  * 2 * g
@@ -397,12 +418,15 @@ namespace Nonlinear {
       const std::vector<unsigned int>& degrees = tria.get_degree();
       Vector<double>  local_residuals(tria.n_active_cells());
 
+      std::map< types::boundary_id,
+              const Function<2>* >   neumann_data = {{Boundary::Neumann_Case_1, &nc1_fcn}};
       
-      tria.minimal_residual_error_estimate(
-                          {degrees[0]*degrees[0] + 1,
+      tria.nonlinear2d_residual_error_estimate(
+                          {degrees[0]*degrees[0] + 1, 
                            degrees[1]*degrees[1] + 1},
-                           k,
+                           exponent,
                            rhs_fcn,
+                           neumann_data,
                            current_solution,
                            local_residuals
                            );
@@ -541,14 +565,19 @@ namespace Nonlinear {
     const std::vector<unsigned int>& degrees = tria.get_degree();
     Vector<double>  cell_errors(tria.n_active_cells());
 
-    tria.nonlinear2d_residual_error_estimate(
-                  {degrees[0]*degrees[0] + 1,
-                   degrees[1]*degrees[1] + 1},
-                   exponent,
-                   rhs_fcn,
-                   current_solution,
-                   cell_errors
-                   );
+    std::map< types::boundary_id,
+              const Function<2>* >    neumann_data = {{Boundary::Neumann_Case_1, &nc1_fcn}};
+      
+      tria.nonlinear2d_residual_error_estimate(
+                          {degrees[0]*degrees[0] + 1, 
+                           degrees[1]*degrees[1] + 1},
+                           exponent,
+                           rhs_fcn,
+                           neumann_data,
+                           current_solution,
+                           cell_errors
+                           );
+
     data_out.add_data_vector(cell_errors, "cell_errors");
     
 
@@ -619,6 +648,14 @@ namespace Nonlinear {
     const auto& splines = tria.get_splines();
     for (unsigned int i = 0; i < tria.n_active_splines(); i++)
         splines[i] -> set_solution(current_solution[i]);
+
+    problem_out.add_values_to_table(
+      tria.n_levels() - 1,
+      tria.n_active_cells(),
+      tria.n_active_splines(),
+      solver_control.last_step(),
+      solver_control.tolerance()
+    ); 
   } // solve_system
 
 
@@ -639,7 +676,6 @@ namespace Nonlinear {
     const unsigned int n0 = kv[0].size() - 1;
     const unsigned int n1 = kv[1].size() - 1;
 
-    if (problem_shape == ProblemShape::Square)
     {
       for (unsigned int i = 0; i < N; i++)
       {
@@ -730,9 +766,8 @@ namespace Nonlinear {
         newton_iteration++;
 
       } // do ( ... )
-      while (newton_iteration < 30
-             //&& norm_diff > 1e-4 
-             && current_norm > 1e-2
+      while (newton_iteration < 200
+             && current_norm > 1e-8
             );
 
       std::cout << "Outputting system after last newton iteration ..." << std::endl;
@@ -749,7 +784,7 @@ namespace Nonlinear {
 //===================================================================
 
 //===================================================================
-  double Nonlinear2D_RHS::value(
+  double Nonlinear2D_RHS1::value(
     const Point<2>&     /*p*/, 
     const unsigned int /* component */
   ) const {
@@ -759,7 +794,7 @@ namespace Nonlinear {
     return out;
   } // value 
 
-  Tensor<1, 2> Nonlinear2D_RHS::gradient(
+  Tensor<1, 2> Nonlinear2D_RHS1::gradient(
     const Point<2>&     /*p*/, 
     const unsigned int /* component */
   ) const {
@@ -768,7 +803,7 @@ namespace Nonlinear {
     return out;
   } // gradient 
 
-  double Nonlinear2D_NC::value(
+  double Nonlinear2D_NC1::value(
     const Point<2>&     p, 
     const unsigned int /* component */
   ) const {

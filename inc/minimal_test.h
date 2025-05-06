@@ -1,13 +1,5 @@
-/*
- * nonlinear.h
- *
- *  Created on: 07.04.2025
- *      Author: nguyen
- */
-
-
-#ifndef INC_NONLINEAR_2D_H_
-#define INC_NONLINEAR_2D_H_
+#ifndef INC_MINIMAL_TEST_H_
+#define INC_MINIMAL_TEST_H_
 
 #include <memory>
 
@@ -29,9 +21,6 @@
 #include <deal.II/fe/fe_bernstein.h>
 #include <deal.II/fe/fe_values.h>
 
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/dofs/dof_handler.h>
-
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/data_out.h>
@@ -49,75 +38,45 @@
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 #include <deal.II/lac/affine_constraints.h>
 
+#include <deal.II/lac/sparse_direct.h>
+
 #include <fstream>
 #include <iostream>
 
 #include <utility>
 #include <chrono>
 
+#include <minimal_surface.h>
 
-namespace Nonlinear {
 
-  using namespace dealii;
+namespace Minimal_Surface {
   using namespace dealt;
+  using namespace dealii;
 
-  class Nonlinear2D_RHS1 : public Function<2> {
+
+  class Minimal_DC : public Function<2> {
   public:
-    Nonlinear2D_RHS1() : Function<2>(1) {}
-    ~Nonlinear2D_RHS1() = default;
+    Minimal_DC() : Function<2>(1) {}
+    ~Minimal_DC() = default;
 
     virtual double value(
-      const Point<2>&       p,
-      const unsigned int    component = 0
-    ) const override;
-        
-    virtual Tensor<1, 2> gradient(
-      const Point<2>&       p,
-      const unsigned int    component = 0
-    ) const override; 
-  };
-
-  class Nonlinear2D_NC1 : public Function<2> {
-  public:
-    Nonlinear2D_NC1() : Function<2>(1) {}
-    ~Nonlinear2D_NC1() = default;
-    virtual double value(
-      const Point<2>& p,
-      const unsigned int     component = 0
+      const Point<2>&     p,
+      const unsigned int  component = 0
     ) const override;
   };
 
-  enum ProblemCase{
-    Case_1,
-    Case_2,
-    Case_3
-  };
-  
-  enum RefinementStrategy{
-    Adaptive, 
-    Uniform
-  };
 
-  enum StepLengthStrategy{
-    Constant,
-    LineSearch
-  };
-
-
-  class Nonlinear2D_Benchmark
+  class Minimal_Test 
   {
     enum Boundary {
-      None, 
-      Neumann_Case_1,
-      Neumann_Case_2,
+      None,
       Dirichlet_0,
-      Dirichlet
+      Dirichlet_1
     };
-
+    
   private:
     int ref;
     int order;
-    int exponent; // exponent k of equation. k=3
 
     IPF_Data<2, 2>            data;
     TS_Triangulation<2, 2>    tria;
@@ -134,43 +93,37 @@ namespace Nonlinear {
 
     unsigned int              cycle;
 
-    Function<2>*              rhs_fcn;
-    Nonlinear2D_NC1           nc1_fcn;
+    Minimal_DC                DC_fcn;
 
-    ProblemCase               problem_case;
+    
     RefinementStrategy        refinement_strategy;
-    StepLengthStrategy        step_length_strategy;
-
-
   public:
-    Nonlinear2D_Benchmark(
+    Minimal_Test(
       int ref,
       int order,
-      int exponent,
-      const ProblemCase problem_case,
-      const RefinementStrategy strategy = RefinementStrategy::Uniform,
-      const StepLengthStrategy steplength_strategy = StepLengthStrategy::Constant
+      const RefinementStrategy strategy = RefinementStrategy::Uniform
     );
-    
     void run();
 
+    
   private:
-    IPF_Data<2> get_IPF_data() const;
+    IPF_Data<2, 2> get_IPF_data();
 
 
     void   setup_system();
     void   assemble_system();
     void   impose_boundary_condition();
-    double compute_residual_for_steplength(double alpha) const;
-    void   solve_system();
+    double compute_residual_for_steplength(double alpha);
+    void   solve_system_constant();
+
     void   output_system();
-    double determine_step_length_const() const {return 0.1;};
-    double determine_step_length_LS() const;
+    double determine_step_length_const() const {return 1.;};
     void   estimate_and_mark();   
     void   print_numerical_solution(std::string addition = "");
-
   };
+}
 
-} // namespace Nonlinear
 
-#endif /* INC_NONLINEAR_2D_H_ */
+
+
+#endif /* INC_MINIMAL_TEST_H_ */

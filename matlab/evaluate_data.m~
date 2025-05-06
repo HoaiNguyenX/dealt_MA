@@ -129,8 +129,8 @@ for o = p_min:p_max
      cells   = B(index, strcmp(readVariables, "Cells"));
     h1             = B(index, strcmp(readVariables, "H1"));
     h1(end+1)      = B(end,   strcmp(readVariables, "H1"));
-    l2             = B(index, strcmp(readVariables, "L2"));
-    l2(end+1)      = B(end,   strcmp(readVariables, "L2"));
+    l1             = B(index, strcmp(readVariables, "L2"));
+    l1(end+1)      = B(end,   strcmp(readVariables, "L2"));
 %    k              = B(index, strcmp(readVariables, "k__CG_"));
 %    k(end+1)       = B(end,   strcmp(readVariables, "k__CG_"));
 %     dofs_uniform = B(index, strcmp(readVariables, "DoFs_uniform"));
@@ -196,7 +196,7 @@ for o = p_min:p_max
         'Marker', Markers{i},  ...
         'LineWidth', lw        ...
         );
-    loglog(dofs, l2, ...
+    loglog(dofs, l1, ...
         'Color', Colors(i, :), ...
         'LineStyle', '-',      ...
         'Marker', Markers{i},  ...
@@ -268,8 +268,7 @@ legend(labels2, ...
 % print the figures to files
 if ~isempty(name)
     print_figure(fig1, [name '_h1_errors']);
-    print_figure(fig1, [name '_l2_errors']);
-    %print_figure(fig2, [name '_cg_iters']);
+    print_figure(fig2, [name '_cg_iters']);
 end
 
 if (isempty(succesfull_reads))
