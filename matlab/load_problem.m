@@ -441,8 +441,8 @@ if space_dimension == 3
     
     view([1 1 1]);
 else 
-    surf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
-    %contourf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
+    %surf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
+    contourf(ax, Phix, Phiy, u, 'EdgeColor', 'none'); hold on;
 end
 if nargin > 6
     caxis(ax, [minColorLimit, maxColorLimit]);

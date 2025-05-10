@@ -28,9 +28,9 @@
 #include <minimal_surface_standard.h>
 #include <minimal_surface.h>
 #include <nonlinear_2d.h>
-//#include <nonlinear_3d.h>
+#include <nonlinear_3d.h>
 
-//#include <minimal_test.h>
+#include <minimal_test.h>
 
 
 /*

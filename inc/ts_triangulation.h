@@ -479,7 +479,7 @@ namespace dealt {
 
 
     // Computes the weak residual for the nonlinear problem
-    void nonlinear2d_residual_error_estimate(
+    void nonlinear_residual_error_estimate(
       const std::vector< unsigned int >&            degrees,
       const int                                     k,
       const Function<space_dimension>*              rhs_fcn,
@@ -491,7 +491,7 @@ namespace dealt {
       std::map< cell_iterator, double >&            residuals
     ) const; // nonlinear2d_residual_error_estimate [1/2]
 
-    void nonlinear2d_residual_error_estimate(
+    void nonlinear_residual_error_estimate(
       const std::vector< unsigned int >&            degrees,
       const int                                     k,
       const Function<space_dimension>*              rhs_fcn,

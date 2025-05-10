@@ -54,7 +54,28 @@ namespace Minimal_Surface {
   using namespace dealii;
 
 
-  class Minimal_DC : public Function<2> {
+  class Minimal_RHS1 : public Function<2> {
+  public:
+    Minimal_RHS1() : Function<2>(1) {}
+    ~Minimal_RHS1() = default;
+
+    virtual double value(
+      const Point<2>&     p,
+      const unsigned int  component = 0
+    ) const override;
+  };
+  class Minimal_NC1 : public Function<2> {
+  public:
+    Minimal_NC1() : Function<2>(1) {}
+    ~Minimal_NC1() = default;
+
+    virtual double value(
+      const Point<2>&     p,
+      const unsigned int  component = 0
+    ) const override;
+  };
+
+class Minimal_DC : public Function<2> {
   public:
     Minimal_DC() : Function<2>(1) {}
     ~Minimal_DC() = default;
@@ -64,14 +85,15 @@ namespace Minimal_Surface {
       const unsigned int  component = 0
     ) const override;
   };
-
-
   class Minimal_Test 
   {
     enum Boundary {
       None,
       Dirichlet_0,
-      Dirichlet_1
+      Dirichlet_1,
+      Dirichlet_s,
+      Neumann_Case_1
+
     };
     
   private:
@@ -94,13 +116,17 @@ namespace Minimal_Surface {
     unsigned int              cycle;
 
     Minimal_DC                DC_fcn;
+    Minimal_NC1               nc_fcn;
+    Minimal_RHS1               rhs_fcn;
 
-    
+
+    ProblemShape              problem_shape;
     RefinementStrategy        refinement_strategy;
   public:
     Minimal_Test(
       int ref,
       int order,
+      const ProblemShape shape,
       const RefinementStrategy strategy = RefinementStrategy::Uniform
     );
     void run();
@@ -114,7 +140,7 @@ namespace Minimal_Surface {
     void   assemble_system();
     void   impose_boundary_condition();
     double compute_residual_for_steplength(double alpha);
-    void   solve_system_constant();
+    void   solve_system();
 
     void   output_system();
     double determine_step_length_const() const {return 1.;};

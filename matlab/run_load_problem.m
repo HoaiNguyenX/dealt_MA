@@ -109,7 +109,7 @@ load_problem(data, problem, out_path, o, l, 1, 1, dim);
 
 %% Minimal surface square 
 
-o = 2; l = 13; dim = 3; 
+o = 2; l = 12; dim = 3; 
 out_path = './img_out/minimal_surface_square_sol';
 data = {'solution'};
 problem = '../out/minimal_surface_square_adaptive/';
@@ -127,9 +127,9 @@ load_problem(data, problem, out_path, o, l, 1);
 
 %% Minimal surface catenoid
 
-o = 2; l = 8; dim = 3; 
+o = 2; l = 11; dim = 3; 
 out_path = './img_out/minimal_surface_catenoid_aa';
-data = {'solution'};
+data = {'physical_grid'};
 problem = '../out/minimal_surface_annulus_adaptive/';
 load_problem(data, problem, out_path, o, l, 14);
 colorbar
@@ -140,5 +140,42 @@ o = 2; l = 3; dim = 3;
 out_path = './img_out/minimal_surface_catenoid_singular';
 data = {'solution'};
 problem = '../out/minimal_surface_annulus_sing_adaptive/';
+load_problem(data, problem, out_path, o, l, 14);
+colorbar
+
+
+%% nonlinear2d k=1 case 1
+
+o = 2; l = 3; dim = 3; 
+out_path = './img_out/nonlinear2d_k1_c1_1';
+data = {'solution'};
+problem = '../out/nonlinear2d_adaptive/k1_case_1/';
+load_problem(data, problem, out_path, o, l, 14);
+colorbar
+
+%% nonlinear2d k=3 case 1
+
+o = 2; l = 14; dim = 3; 
+out_path = './img_out/nonlinear2d_k3_c1_1';
+data = {'solution'};
+problem = '../out/nonlinear2d_adaptive/k3_case_1/';
+load_problem(data, problem, out_path, o, l, 14);
+colorbar
+
+%% nonlinear2d k=3 case 2
+
+o = 2; l = 10; dim = 3; 
+out_path = './img_out/nonlinear2d_k3_c2_1';
+data = {'solution'};
+problem = '../out/nonlinear2d_adaptive/k3_case_2/';
+load_problem(data, problem, out_path, o, l, 14);
+colorbar
+
+%% nonlinear2d k=3 case 2
+
+o = 2; l = 10; dim = 3; 
+out_path = './img_out/nonlinear2d_k3_c3_1';
+data = {'solution'};
+problem = '../out/nonlinear2d_adaptive/k3_case_2/';
 load_problem(data, problem, out_path, o, l, 14);
 colorbar

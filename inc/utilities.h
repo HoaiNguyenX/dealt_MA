@@ -80,6 +80,19 @@ namespace dealt {
     );
 
     // With n_Newton_steps
+
+    void add_values_to_table(
+      const unsigned int  &level,
+      const unsigned int  &cycle,
+      const unsigned int  &n_cells,
+      const unsigned int  &n_dofs,
+      const unsigned int  &k_newton,
+      const double        &update_norm,
+      const double        &last_norm,
+      const double        &initial_norm,
+      const bool          &clear =false
+    );
+
     void add_values_to_table(
       const unsigned int  &level,
       const unsigned int  &cycle,

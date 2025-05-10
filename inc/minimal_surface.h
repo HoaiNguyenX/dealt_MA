@@ -195,6 +195,7 @@ namespace Minimal_Surface {
 
     
   private:
+  using cell_iterator         = TriaIterator<CellAccessor<2, 2>>;
     IPF_Data<2, 2> get_IPF_data(const ProblemShape shape, 
                                 const bool singularity);
     IPF_Data<2, 2> get_IPF_data_halfcircle();
@@ -211,7 +212,6 @@ namespace Minimal_Surface {
     double compute_residual_for_steplength(double alpha);
     double determine_step_length_const() {return 1;};
     double determine_step_length_LS();
-    void   compute_h1_error();
 
     void   output_system(); 
     void   print_numerical_solution(std::string addition = "");

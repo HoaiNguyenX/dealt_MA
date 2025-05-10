@@ -888,17 +888,19 @@ void print_example(std::string ex, int ref, int order){
   } else if (ex == "minimal_standard") {
     Minimal_Surface::Minimal_Benchmark_Standard problem(order);
     problem.run(ref);
-  // } else if (ex == "minimal_test_uni") {
-  //   Minimal_Surface::Minimal_Test problem(
-  //     ref, order
-  //   );
-  //   problem.run();
-  //   } else if (ex == "minimal_test_ad") {
-  //   Minimal_Surface::Minimal_Test problem(
-  //     ref, order, 
-  //     Minimal_Surface::RefinementStrategy::Adaptive
-  //   );
-  //   problem.run();
+  } else if (ex == "minimal_test_uni") {
+    Minimal_Surface::Minimal_Test problem(
+      ref, order,
+      Minimal_Surface::ProblemShape::Square
+    );
+    problem.run();
+    } else if (ex == "minimal_test_ad") {
+    Minimal_Surface::Minimal_Test problem(
+      ref, order, 
+      Minimal_Surface::ProblemShape::Square,
+      Minimal_Surface::RefinementStrategy::Adaptive
+    );
+    problem.run();
 
 
 
@@ -965,11 +967,8 @@ void print_example(std::string ex, int ref, int order){
     problem.run();
 
 
-  // Nonlinear Poisson Problems
-
-
-
-  } else if (ex == "nonlinear2d_c1_uni") {
+  // Nonlinear Poisson Problems in 2D
+  } else if (ex == "nonlinear2d_k3_c1_uni") {
     Nonlinear::Nonlinear2D_Benchmark problem(
       ref, 
       order,
@@ -977,7 +976,7 @@ void print_example(std::string ex, int ref, int order){
       Nonlinear::ProblemCase::Case_1
       );
     problem.run();
-  } else if (ex == "nonlinear2d_c1_ad") {
+  } else if (ex == "nonlinear2d_k3_c1_ad") {
     Nonlinear::Nonlinear2D_Benchmark problem(
       ref, 
       order,
@@ -986,7 +985,7 @@ void print_example(std::string ex, int ref, int order){
       Nonlinear::RefinementStrategy::Adaptive
       );
     problem.run();
-  } else if (ex == "nonlinear2d_c2_uni") {
+  } else if (ex == "nonlinear2d_k3_c2_uni") {
     Nonlinear::Nonlinear2D_Benchmark problem(
       ref, 
       order,
@@ -994,7 +993,7 @@ void print_example(std::string ex, int ref, int order){
       Nonlinear::ProblemCase::Case_2
       );
     problem.run();
-  } else if (ex == "nonlinear2d_c2_ad") {
+  } else if (ex == "nonlinear2d_k3_c2_ad") {
     Nonlinear::Nonlinear2D_Benchmark problem(
       ref, 
       order,
@@ -1005,6 +1004,115 @@ void print_example(std::string ex, int ref, int order){
     problem.run();
 
 
+  } else if (ex == "nonlinear2d_k1_c1_uni") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_1
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_k1_c1_ad") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_1,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_k1_c2_uni") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_2
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_k1_c2_ad") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_2,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+
+
+
+
+  // Nonlinear in 3D
+  } else if (ex == "nonlinear3d_k3_c1_uni") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_1
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k3_c1_ad") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_1,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k3_c2_uni") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_2
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k3_c2_ad") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_2,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+
+
+  } else if (ex == "nonlinear3d_k1_c1_uni") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_1
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k1_c1_ad") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_1,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k1_c2_uni") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_2
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k1_c2_ad") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      1,
+      Nonlinear::ProblemCase::Case_2,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
 
   } else
     Assert(false, ExcMessage("The chosen case is not implemented"));

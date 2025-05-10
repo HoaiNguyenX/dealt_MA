@@ -24,8 +24,7 @@ namespace dealt {
       update_values |
       update_gradients |
       update_quadrature_points |
-      update_JxW_values | 
-      update_hessians
+      update_JxW_values
     );
     TSFaceValues<dim, spacedim> face_values(
       this, degrees,
@@ -58,6 +57,8 @@ namespace dealt {
           // in-active and hence their index is not represented in mof
           if (mof.at(face -> child(0) -> index()) == p[orientation]) {
             // C0 Edge detected:
+            std::cout << "C0 edge detected 1" << std::endl;
+
             face_values.reinit(cell, f);
             const unsigned int ppf = 2 * face_values.n_quadrature_points_per_face();
             for (const unsigned int q_index : face_values.quadrature_point_indices()){
@@ -181,7 +182,7 @@ namespace dealt {
 
   template<int dim, int spacedim>
   void TS_TriangulationBase<dim, spacedim>::
-    nonlinear2d_residual_error_estimate(
+    nonlinear_residual_error_estimate(
       const std::vector< unsigned int >&            degrees,
       const int                                     k,
       const Function<space_dimension>*              rhs_fcn,
@@ -196,6 +197,7 @@ namespace dealt {
     TSValues<dim, spacedim> ts_values(
       this, degrees,
       update_values |
+      update_gradients |
       update_quadrature_points |
       update_JxW_values | 
       update_hessians
@@ -207,7 +209,7 @@ namespace dealt {
       update_quadrature_points |
       update_JxW_values  |
       update_normal_vectors);
-    const unsigned int nvc = GeometryInfo<2>::vertices_per_cell;
+    const unsigned int nvc = GeometryInfo<dim>::vertices_per_cell;
     const unsigned int nvf = GeometryInfo<dim>::vertices_per_face;
 
     std::map< unsigned int, double > face_residuals;
@@ -261,6 +263,7 @@ namespace dealt {
 
             face_residuals[face -> index()] += 0.25 * g * g * face_values.JxW(q_index);
           } // for ( q_index )
+
         } else if (face -> at_boundary()) {
           const auto& bc = neumann_bc.find(face -> boundary_id());
           if (bc == neumann_bc.end())
@@ -277,6 +280,226 @@ namespace dealt {
                       face_values.shape_grad(i, q_index) *
                       face_values.normal_vector(q_index);
 
+            face_residuals[face -> index()] += g * g * face_values.JxW(q_index);
+          } // for ( q_index )
+        } // if ( ... )
+      } // for ( face )
+    } // for ( cell )
+    
+    // After every Jump on every face is computed,
+    // we compute the residuals on the cells
+    for (const auto& cell : this -> active_cell_iterators()){
+      double& local_residual = residuals[cell];
+      const std::vector< unsigned int >& local_dof_indices = get_IEN_array(cell);
+      ts_values.reinit(cell);
+
+      // get old solution gradient
+      std::vector< Tensor<1, spacedim> > sol_grad(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_gradients(solution, sol_grad);
+
+      // get old solution hessian
+      std::vector< Tensor<2, spacedim> > sol_hess(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_hessians(solution, sol_hess);
+      
+      for ( const unsigned int q_index : ts_values.quadrature_point_indices()){
+
+        double laplace_u = 0.;
+        double nonlinearity = 0.;
+        const Point<space_dimension>& Q = ts_values.quadrature_point(q_index);
+        double rhs = rhs_fcn -> value(Q);
+
+        for (const unsigned int i : ts_values.dof_indices() )
+        {
+          double laplace = 0.;
+          for (unsigned int d = 0; d < space_dimension; d++)
+            laplace += ts_values.shape_hessian(i, q_index)[d][d];
+
+          laplace_u += laplace * solution(local_dof_indices[i]);
+          nonlinearity = std::pow(solution(local_dof_indices[i]),k);
+
+        } // for ( i )
+
+        double tmp = rhs + laplace_u - nonlinearity;
+        local_residual += tmp * tmp * ts_values.JxW(q_index);
+
+      } // for ( q_index )
+
+      const double cell_width = (cell->vertex(0)).distance(
+                                cell->vertex(nvc - 1));
+
+      local_residual *= cell_width * cell_width;
+
+      // And then also add the values from the faces:
+      for (unsigned int f = 0;
+              f < GeometryInfo<dimension>::faces_per_cell;
+              f++) {
+        if (cell -> face(f) -> has_children()){
+          const double child0_width = 
+             (cell -> face(f) -> child(0) -> vertex(0)).distance(
+              cell -> face(f) -> child(0) -> vertex(nvf - 1));
+          const double child1_width = 
+             (cell -> face(f) -> child(1) -> vertex(0)).distance(
+              cell -> face(f) -> child(1) -> vertex(nvf - 1));
+          local_residual += child0_width *
+                  face_residuals[cell -> face(f) -> child(0) -> index()];
+          local_residual += child1_width *
+                  face_residuals[cell -> face(f) -> child(1) -> index()];
+        } else {
+          const double face_width = 
+              (cell -> face(f) -> vertex(0)).distance(
+               cell -> face(f) -> vertex(nvf - 1));
+          local_residual += face_width *
+                  face_residuals[cell -> face(f) -> index()];
+        }
+      } // for ( f )
+
+      local_residual = std::sqrt(local_residual);
+    } // for ( cell )
+  } // nonlinear_residual_error_estimate() [1/2]
+
+
+
+  template<int dim, int spacedim>
+  void TS_TriangulationBase<dim, spacedim>::
+    nonlinear_residual_error_estimate(
+      const std::vector< unsigned int >&            degrees,
+      int                                           k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+            Vector<double>&                         residuals
+    ) const 
+  {
+    Assert(residuals.size() == this->n_active_cells(),
+            ExcDimensionMismatch(residuals.size(), this->n_active_cells()));
+    // Pass arguments to previous function
+    std::map< cell_iterator, double > res;
+    nonlinear_residual_error_estimate(
+      degrees,
+      k,
+      rhs_fcn,
+      neumann_bc,
+      solution,
+      res);
+
+    unsigned int i = 0; 
+    for (const auto& [_, e] : res)
+      residuals(i++) = e; 
+  } // nonlinear_residual_error_estimate() [2/2]
+
+
+  template<int dim, int spacedim>
+  void TS_TriangulationBase<dim, spacedim>::
+    nonlinear3d_residual_error_estimate(
+      const std::vector< unsigned int >&            degrees,
+      const int                                     k,
+      const Function<space_dimension>*              rhs_fcn,
+      const std::map< 
+                      types::boundary_id,
+                const Function<space_dimension>* 
+              >&                                    neumann_bc,
+      const Vector<double>&                         solution,
+      std::map< cell_iterator, double >&            residuals
+    ) const 
+  {
+    std::cout << " Trying to initialize TSValues" << std::endl;
+    TSValues<dim, spacedim, spacedim> ts_values(
+      this, degrees,
+      update_values |
+      update_gradients |
+      update_quadrature_points |
+      update_JxW_values | 
+      update_hessians
+    );
+    std::cout << " TSValues initialized" << std::endl;
+    TSFaceValues<dim, spacedim,spacedim> face_values(
+      this, degrees,
+      update_values |
+      update_gradients |
+      update_quadrature_points |
+      update_JxW_values  |
+      update_normal_vectors);
+    const unsigned int nvc = GeometryInfo<dim>::vertices_per_cell;
+    const unsigned int nvf = GeometryInfo<dim>::vertices_per_face;
+    std::cout << " I am in nonlinear3d_residual_error_estimate" << std::endl;
+    std::map< unsigned int, double > face_residuals;
+    for (const auto& cell : this -> active_cell_iterators()) {
+      std::vector< unsigned int > local_dof_indices = get_IEN_array(cell);   
+      std::cout << "cell: " << cell->index() << std::endl;
+      // Compute the jumps of faces at C0 continuity
+      for (unsigned int f = 0;
+              f < GeometryInfo<dimension>::faces_per_cell;
+              f++) {
+        // Get orientation of current face:
+        const auto& face = cell -> face(f);
+        const Point<dimension>& c = (-1.) * 
+                                    face -> vertex(0) +
+                                    face -> vertex(nvf - 1);
+        unsigned int orientation = 0;
+        for ( ; orientation < dimension && c(orientation) != 0; orientation++);
+        std::cout << "face: " << face -> index() << " with coords ";
+        std::cout << face->center()[0] << ", "<< face->center()[1]<<std::endl;
+        if (face -> has_children() ) {
+          // This is merely a special case, as refined faces are considered
+          // in-active and hence their index is not represented in mof
+          if (mof.at(face -> child(0) -> index()) == p[orientation]) {
+            // C0 Edge detected:
+            std::cout << "C0 edge detected 1" << std::endl;
+            face_values.reinit(cell, f);
+            const unsigned int ppf = 2 * face_values.n_quadrature_points_per_face();
+            for (const unsigned int q_index : face_values.quadrature_point_indices()){
+              double g = 0;
+              for (const unsigned int i : face_values.dof_indices())
+                g += solution(local_dof_indices[i]) *
+                        face_values.shape_grad(i, q_index) *
+                        face_values.normal_vector(q_index);
+
+              const unsigned int ch = q_index > ppf ? 1 : 0;
+              face_residuals[face -> child(ch) -> index()] +=
+                      0.25 * g * g * face_values.JxW(q_index);
+            } // for ( q_index )
+          } // otherwise it is atleast a C1 edge, and cannot be at the boundary
+        } else if (mof.at(face -> index()) == p[orientation]){
+          // C0 edge detected
+          face_values.reinit(cell, f);
+          std::cout << "C0 edge detected 2" << std::endl;
+          // Since this face is not refined, we can simply compute
+          // the jump terms along it and store the values at the
+          // corresponding place in face_residuals
+          for (const unsigned int q_index : face_values.quadrature_point_indices()){
+            double g = 0;
+            for (const unsigned int i : face_values.dof_indices())
+              g += solution(local_dof_indices[i]) *
+                      face_values.shape_grad(i, q_index) *
+                      face_values.normal_vector(q_index);
+
+            face_residuals[face -> index()] += 0.25 * g * g * face_values.JxW(q_index);
+          } // for ( q_index )
+        } else if (face -> at_boundary()) {
+          const auto& bc = neumann_bc.find(face -> boundary_id());
+          if (bc == neumann_bc.end())
+            continue;
+          std::cout << "Neumann BC detected at face "<< face->boundary_id() << std::endl;
+          face_values.reinit(cell, f);
+          // If the face is at the boundary, compute the jump from
+          // the face's boundary id
+          for (const unsigned int q_index : face_values.quadrature_point_indices()){
+            double g = neumann_bc.at(face -> boundary_id())
+                          -> value(face_values.quadrature_point(q_index));    // u = g_N
+            // std::cout << "g_N at q_point" << q_index << " = " << g << std::endl;
+            for (const unsigned int i : face_values.dof_indices())
+            {
+              g -= solution(local_dof_indices[i]) *
+                      face_values.shape_grad(i, q_index) *
+                      face_values.normal_vector(q_index);
+              // std::cout << "solution = " << solution(local_dof_indices[i]) << std::endl;
+              // std::cout << "shape_grad = " << face_values.shape_grad(i, q_index) << std::endl;
+              // std::cout << "normal_vector = " << face_values.normal_vector(q_index) << std::endl;
+              // std::cout << "g_N = " << g << std::endl;
+            }
             face_residuals[face -> index()] += g * g * face_values.JxW(q_index);
           } // for ( q_index )
         } // if ( ... )
@@ -359,7 +582,7 @@ namespace dealt {
 
   template<int dim, int spacedim>
   void TS_TriangulationBase<dim, spacedim>::
-    nonlinear2d_residual_error_estimate(
+    nonlinear3d_residual_error_estimate(
       const std::vector< unsigned int >&            degrees,
       int                                           k,
       const Function<space_dimension>*              rhs_fcn,
@@ -375,7 +598,7 @@ namespace dealt {
             ExcDimensionMismatch(residuals.size(), this->n_active_cells()));
     // Pass arguments to previous function
     std::map< cell_iterator, double > res;
-    nonlinear2d_residual_error_estimate(
+    nonlinear3d_residual_error_estimate(
       degrees,
       k,
       rhs_fcn,
@@ -389,7 +612,6 @@ namespace dealt {
   } // nonlinear_residual_error_estimate() [2/2]
 
 
-  
 
 
   // =======================================================================
@@ -932,7 +1154,7 @@ namespace dealt {
           } // for ( q_index )
         } // if ( ... )
       } // for ( face )
-    } // for ( cell )
+    }  // for ( cell )
 
     // After every Jump on every face is computed,
     // we compute the residuals on the cells

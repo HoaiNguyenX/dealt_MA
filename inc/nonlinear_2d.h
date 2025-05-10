@@ -49,6 +49,8 @@
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 #include <deal.II/lac/affine_constraints.h>
 
+#include <deal.II/lac/sparse_direct.h>
+
 #include <fstream>
 #include <iostream>
 
@@ -70,17 +72,54 @@ namespace Nonlinear {
       const Point<2>&       p,
       const unsigned int    component = 0
     ) const override;
-        
-    virtual Tensor<1, 2> gradient(
+  };
+
+    class Nonlinear2D_RHS2 : public Function<2> {
+  public:
+    Nonlinear2D_RHS2() : Function<2>(1) {}
+    ~Nonlinear2D_RHS2() = default;
+
+    virtual double value(
       const Point<2>&       p,
       const unsigned int    component = 0
-    ) const override; 
+    ) const override;
+  };
+
+    class Nonlinear2D_RHS3 : public Function<2> {
+  public:
+    Nonlinear2D_RHS3() : Function<2>(1) {}
+    ~Nonlinear2D_RHS3() = default;
+
+    virtual double value(
+      const Point<2>&       p,
+      const unsigned int    component = 0
+    ) const override;
   };
 
   class Nonlinear2D_NC1 : public Function<2> {
   public:
     Nonlinear2D_NC1() : Function<2>(1) {}
     ~Nonlinear2D_NC1() = default;
+    virtual double value(
+      const Point<2>& p,
+      const unsigned int     component = 0
+    ) const override;
+  };
+
+  class Nonlinear2D_NC2 : public Function<2> {
+  public:
+    Nonlinear2D_NC2() : Function<2>(1) {}
+    ~Nonlinear2D_NC2() = default;
+    virtual double value(
+      const Point<2>& p,
+      const unsigned int     component = 0
+    ) const override;
+  };
+
+  class Nonlinear2D_NC3 : public Function<2> {
+  public:
+    Nonlinear2D_NC3() : Function<2>(1) {}
+    ~Nonlinear2D_NC3() = default;
     virtual double value(
       const Point<2>& p,
       const unsigned int     component = 0
@@ -108,10 +147,10 @@ namespace Nonlinear {
   {
     enum Boundary {
       None, 
+      Dirichlet_0,
       Neumann_Case_1,
       Neumann_Case_2,
-      Dirichlet_0,
-      Dirichlet
+      Neumann_Case_3
     };
 
   private:
@@ -128,14 +167,21 @@ namespace Nonlinear {
 
     OutputSetup               problem_out;
 
+    Vector<double>            control_rhs;
     Vector<double>            system_rhs;
     Vector<double>            current_solution;
     Vector<double>            newton_update;
 
     unsigned int              cycle;
 
+    double                    L2 = 0;
+    double                    H1 = 0;
+
+
     Function<2>*              rhs_fcn;
     Nonlinear2D_NC1           nc1_fcn;
+    Nonlinear2D_NC2           nc2_fcn;
+    Nonlinear2D_NC3           nc3_fcn;
 
     ProblemCase               problem_case;
     RefinementStrategy        refinement_strategy;
@@ -161,13 +207,16 @@ namespace Nonlinear {
     void   setup_system();
     void   assemble_system();
     void   impose_boundary_condition();
-    double compute_residual_for_steplength(double alpha) const;
     void   solve_system();
     void   output_system();
-    double determine_step_length_const() const {return 0.1;};
+    double determine_step_length_const() const {return 1;};
     double determine_step_length_LS() const;
     void   estimate_and_mark();   
-    void   print_numerical_solution(std::string addition = "");
+    void   print_numerical_solution(Vector<double> vector,std::string addition = "");
+    void   get_neumann_data(
+      std::map< types::boundary_id,
+                      const Function<2>* >& neumann_data
+      );
 
   };
 

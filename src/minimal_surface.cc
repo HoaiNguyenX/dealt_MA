@@ -71,7 +71,7 @@ namespace Minimal_Surface{
       const std::vector<bool>& scientific2 =
         {false, false, true, true, true, true, true, true, true, true};
       const std::vector<unsigned int> precision2 = 
-        {0, 0, 0, 0, 0, 4, 4, 4, 4, 4};
+        {0, 0, 0, 0, 0, 2, 2, 2, 2, 2};
       const std::vector<std::string>& super_column_names2 = 
         {"Grid Info", "Newton", "Errors"};
       const std::vector<std::vector<std::string>> super_columns2 =
@@ -84,7 +84,7 @@ namespace Minimal_Surface{
       const std::vector<bool>& scientific =
         {false, false, true, true, true, true, true, true};
       const std::vector<unsigned int> precision = 
-        {0, 0, 0, 0, 0, 4, 4, 4};
+        {0, 0, 0, 0, 0, 2, 2, 2};
       const std::vector<std::string>& super_column_names = 
         {"Grid Info", "Newton"};
       const std::vector<std::vector<std::string>> super_columns =
@@ -437,14 +437,6 @@ namespace Minimal_Surface{
       system_rhs
     );
 
-    typename std::map<types::global_dof_index, double>::const_iterator
-      dof  = boundary_values.begin(),
-      endd = boundary_values.end();
-    for (; dof != endd; ++dof)
-      {
-        Assert(dof->first < n_global_dofs, ExcInternalError());
-        current_solution(dof->first) = dof->second;
-      }
     
   } // impose_boundary_condition
 
@@ -735,7 +727,7 @@ namespace Minimal_Surface{
     DataOut<2> data_out;
     data_out.attach_triangulation(physical_grid); 
 
-    const std::vector<unsigned int>& degrees = tria.get_degree();
+    std::vector<unsigned int> degrees = tria.get_degree();
     Vector<double>  cell_errors(tria.n_active_cells());
 
     tria.minimal_residual_error_estimate(
@@ -745,6 +737,76 @@ namespace Minimal_Surface{
                    cell_errors
                    );
     data_out.add_data_vector(cell_errors, "cell_errors");
+
+
+    // Compute errors for annulus
+    if (this->problem_shape == ProblemShape::Annulus)
+      {
+        degrees[0] = (degrees[0] * degrees[0]) + 1;
+        degrees[1] = (degrees[1] * degrees[1]) + 1;
+        TSValues<2> ts_values(
+            &tria,
+            degrees,
+            update_values |
+            update_gradients |
+            update_quadrature_points |
+            update_hessians |
+            update_JxW_values);
+
+        
+        std::map< cell_iterator, double >    H1_cell_error_map;
+        std::map< cell_iterator, double >    L2_cell_error_map;
+        Vector<double> H1_cell_errors(tria.n_active_cells());
+        Vector<double> L2_cell_errors(tria.n_active_cells());
+        double h1 = 0;
+        double l2 = 0;
+
+        for (const auto& cell : tria.active_cell_iterators()){
+          // Get the Bernstein values on the cell
+          ts_values.reinit(cell);
+
+          std::vector<unsigned int> local_dof_indices = tria.get_IEN_array(cell);
+          // Quadrature sum:
+          for (const unsigned int q_index : ts_values.quadrature_point_indices()){
+            // Map the quadrature point from real cell to parametric cell
+            const Point<2>& mapped_q = ts_values.quadrature_point(q_index);
+            
+            // Get the value of the approximation
+            double u_diff = cat_sol_fcn.value(mapped_q);
+            for (const unsigned int i : ts_values.dof_indices())
+              u_diff -= (current_solution(local_dof_indices[i]) *
+                          ts_values.shape_value(i, q_index));
+            
+            // Build the gradient value at quadrature point:
+            Tensor<1, 2> grad_u_diff = cat_sol_fcn.gradient(mapped_q);
+            for (const unsigned int i : ts_values.dof_indices())
+              grad_u_diff -= ( current_solution(local_dof_indices[i]) *
+                               ts_values.shape_grad(i, q_index));
+            
+            double dx = ts_values.JxW(q_index);
+            h1 += (( grad_u_diff * grad_u_diff ) * dx);
+            l2 += ((      u_diff * u_diff      ) * dx);
+            
+          } // for ( q_index )
+          H1_cell_error_map[cell] = std::sqrt(h1);
+          L2_cell_error_map[cell] = std::sqrt(l2);
+
+        } // for ( cell )
+
+        unsigned int i = 0; 
+        for (const auto& [_, h1] : H1_cell_error_map)
+          H1_cell_errors(i++) = h1; 
+        i = 0; 
+        for (const auto& [_, l1] : L2_cell_error_map)
+          L2_cell_errors(i++) = l1; 
+
+        data_out.add_data_vector(H1_cell_errors, "H1_cell_errors");
+        data_out.add_data_vector(L2_cell_errors, "L2_cell_errors");
+        L2 = std::sqrt(l2);
+        H1 = std::sqrt(l2 + h1);
+
+
+      }
 
 
     // Build patches
@@ -780,70 +842,12 @@ namespace Minimal_Surface{
   } // output_system
 
 
-  void Minimal_Benchmark::compute_h1_error()
-  {
-    // std::cout << "Computing H1-error at Level "
-    //           << tria.n_levels() - 1
-    //           << " with degree "
-    //           << data.max_degree() + order
-    //           << " ... " << std::endl;
-  
-    std::vector< unsigned int > degrees = tria.get_degree();
-    degrees[0] = (degrees[0] * degrees[0]) + 1;
-    degrees[1] = (degrees[1] * degrees[1]) + 1;
-
-    TSValues<2> ts_values(
-        &tria,
-        degrees,
-        update_values |
-        update_gradients |
-        update_quadrature_points |
-        update_hessians |
-        update_JxW_values);
-  
-  
-    double h1 = 0;
-    double l2 = 0;
-  
-    for (const auto& cell : tria.active_cell_iterators()){
-      // Get the Bernstein values on the cell
-      ts_values.reinit(cell);
-  
-      std::vector<unsigned int> local_dof_indices = tria.get_IEN_array(cell);
-  
-      // Quadrature sum:
-      for (const unsigned int q_index : ts_values.quadrature_point_indices()){
-        // Map the quadrature point from real cell to parametric cell
-        const Point<2>& mapped_q = ts_values.quadrature_point(q_index);
-  
-        // Get the value of the approximation
-        double u_diff = cat_sol_fcn.value(mapped_q);
-        for (const unsigned int i : ts_values.dof_indices())
-          u_diff -= (current_solution(local_dof_indices[i]) *
-                      ts_values.shape_value(i, q_index));
-  
-        // Build the gradient value at quadrature point:
-        Tensor<1, 2> grad_u_diff = cat_sol_fcn.gradient(mapped_q);
-        for (const unsigned int i : ts_values.dof_indices())
-          grad_u_diff -= ( current_solution(local_dof_indices[i]) *
-                           ts_values.shape_grad(i, q_index));
-  
-        double dx = ts_values.JxW(q_index);
-        h1 += (( grad_u_diff * grad_u_diff ) * dx) ;
-        l2 += ((      u_diff * u_diff      ) * dx);
-      } // for ( q_index )
-    } // for ( cell )
-
-    L2 = std::sqrt(l2);
-    H1 = std::sqrt(l2 + h1);
-  
-  } // compute_h1_error
 
 
   void Minimal_Benchmark::print_numerical_solution(std::string addition)
   {
     // Number of points to evaluate per direction
-    const unsigned int N = 26;
+    const unsigned int N = 31;
 
     // Declare a container to store the values 
     FullMatrix<double> B_num(3,N*N);
@@ -888,6 +892,9 @@ namespace Minimal_Surface{
   } // print_numerical_solution
 
 
+
+
+
   void Minimal_Benchmark::run()
   {
     std::cout << "Running benchmark ... " << std::endl;
@@ -918,14 +925,7 @@ namespace Minimal_Surface{
                      current_solution,
                      current_residuals
                      );
-      if (cycle != 0)
-      {
-        estimate_and_mark();
-        setup_system();
-        tria.transfer_solution(current_solution);
-        impose_boundary_condition(this -> problem_shape);
 
-      }
 
       std::cout << " n_levels: " << tria.n_levels() << std::endl;
       
@@ -937,13 +937,20 @@ namespace Minimal_Surface{
 
 
       std::string name_norm =  problem_out.dat.string() 
-                            + "norm_l" 
-                            + std::to_string(tria.n_levels() - 1) 
+                            + "norm_cycle" 
+                            + std::to_string(cycle) 
                             + ".dat";
       // outputs iteration and norms
       std::ofstream norm_file(name_norm.c_str(), std::ios::app); // Open file in append mode
 
+      if (cycle != 0)
+      {
+        estimate_and_mark();
+        setup_system();
+        tria.transfer_solution(current_solution);
+        impose_boundary_condition(this -> problem_shape);
 
+      }
       unsigned int newton_iteration = 0;
       double  current_norm = 1., current_residual = 1.;
       do {
@@ -996,10 +1003,9 @@ namespace Minimal_Surface{
       if (cycle != 0 && tria.n_levels() != old_level)
       {
         print_numerical_solution();
-        if (this->problem_shape == ProblemShape::Annulus)
-        {
-          compute_h1_error();
-        }
+        if (tria.n_levels() < 13)
+          output_system();
+        
         std::cout << " Print table in cycle: " << cycle << std::endl; 
         problem_out.add_values_to_table(
           tria.n_levels() - 1,
@@ -1016,8 +1022,7 @@ namespace Minimal_Surface{
         // Output the table to a file preemptively
         problem_out.write_table_text();
         problem_out.write_table_tex();
-        if (tria.n_levels() < 13)
-          output_system();
+
       }
       old_level = tria.n_levels();
       cycle++;
