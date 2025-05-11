@@ -44,10 +44,16 @@ namespace Nonlinear {
       rhs_fcn = new Nonlinear3D_RHS1();
     }
     else if (problem_case == ProblemCase::Case_2)
-      name += "case_2/";
+    {
+      name += "case_2/"; 
+      rhs_fcn = new Nonlinear3D_RHS2();
+    }
+
     else if (problem_case == ProblemCase::Case_3)
+    {
       name += "case_3/";
-    
+      rhs_fcn = new Nonlinear3D_RHS3();
+    }
     else
       AssertThrow(false, ExcNotImplemented());
 
@@ -91,14 +97,28 @@ namespace Nonlinear {
       {
         const Point<3>& c = face -> center();
         if (std::fabs(c(0)) < 1e-15)
+          face -> set_boundary_id(Boundary::Neumann_Case_1);
+        else
           face -> set_boundary_id(Boundary::Dirichlet_0);
+      }
+      else if (problem_case == ProblemCase::Case_2)
+      {
+        const Point<3>& c = face -> center();
+        if (std::fabs(c(0)) < 1e-15)
+          face -> set_boundary_id(Boundary::Neumann_Case_2);
+        else
+          face -> set_boundary_id(Boundary::Dirichlet_0);
+      }
+      else if (problem_case == ProblemCase::Case_3)
+      {
+        const Point<3>& c = face -> center();
+        if (std::fabs(c(0)) < 1e-15)
+          face -> set_boundary_id(Boundary::Neumann_Case_3);
         else
           face -> set_boundary_id(Boundary::Dirichlet_0);
       }
       else
         face -> set_boundary_id(Boundary::None);
-
-
     } // for ( face )
 
   } // constructor
@@ -147,6 +167,7 @@ namespace Nonlinear {
     std::vector< unsigned int > degrees = tria.get_degree();
     degrees[0] = degrees[0]  + 2;
     degrees[1] = degrees[1]  + 2;
+    degrees[2] = degrees[2]  + 2;
 
     TSValues<3> ts_values(
         &tria,
@@ -168,7 +189,7 @@ namespace Nonlinear {
     Vector<double>     cell_rhs(dofs_per_cell);
 
 
-    const int k = 1;
+    const int k = exponent;
 
     for (const auto& cell : tria.active_cell_iterators())
     {
@@ -194,32 +215,26 @@ namespace Nonlinear {
       {
         const Point<3>& mapped_q = ts_values.quadrature_point(q);
         const double rhs = rhs_fcn -> value(mapped_q);
-        const double u_nk   = k == 0 ? 1 : std::pow(old_value[q], k);
-        const double u_nk_1 = k-1 == 0 ? 1 : std::pow(old_value[q], k-1);
 
         // Build the cell matrix and rhs
         for (const unsigned int i : ts_values.dof_indices())
         {
           for(const unsigned int j : ts_values.dof_indices())
-          {
             cell_matrix(i,j) +=
-                      (ts_values.shape_grad(i, q)          // ((\nabla \phi_i
+                      ((ts_values.shape_grad(i, q)         // ((\nabla \phi_i
                        * ts_values.shape_grad(j, q))       //   * \nabla \phi_j)                                        
                        +                                   //  +
                       (ts_values.shape_value(i, q)         //  (\phi_i
-                       *0* k                                 //   * k
-                       * u_nk_1                            //     * u_n^k-1
-                       * ts_values.shape_value(j, q))      //     * \phi_j)
+                       * k * std::pow(old_value[q], k-1)   //  * k * u_n^k-1
+                       * ts_values.shape_value(j, q)) )    //     * \phi_j)
                      * ts_values.JxW(q);                   // * dx
-          } // for ( j )
 
-          
-          cell_rhs(i) +=  (ts_values.shape_value(i, q)     //   (\phi_i
-                            * (rhs - 0*u_nk)                 //      * f - u_n^k
-                          - ts_values.shape_grad(i, q)     //    - \nabla \phi_i   
-                            * old_gradient[q]              //      * \nabla u_n)
-                          )
-                          * ts_values.JxW(q);              // * dx
+
+          cell_rhs(i) +=  (ts_values.shape_value(i, q)              //   (\phi_i
+                              * (rhs - std::pow(old_value[q], k))   //      * f - u_n^k
+                            - ts_values.shape_grad(i, q)            //    - \nabla \phi_i   
+                              * old_gradient[q])                    //      * \nabla u_n)
+                          * ts_values.JxW(q);                       // * dx
         } // for ( i )      
       } // for ( q )
 
@@ -229,7 +244,9 @@ namespace Nonlinear {
         for (unsigned int f = 0; f < GeometryInfo<2>::faces_per_cell; f++)
         {
           if (cell -> face(f) -> at_boundary()
-              && cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_1)
+              && (cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_1
+              || cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_2
+              || cell -> face(f) -> boundary_id() == Boundary::Neumann_Case_3))
           {
             face_values.reinit(cell, f);
 
@@ -238,6 +255,12 @@ namespace Nonlinear {
               double g_value;
               if ( problem_case == ProblemCase::Case_1)
                 g_value = nc1_fcn.value(face_values.quadrature_point(q));
+              else if ( problem_case == ProblemCase::Case_2)
+                g_value = nc2_fcn.value(face_values.quadrature_point(q));
+              else if ( problem_case == ProblemCase::Case_3)
+                g_value = nc3_fcn.value(face_values.quadrature_point(q));
+              else
+                AssertThrow(false, ExcNotImplemented());
 
               for (const unsigned int i : face_values.dof_indices())
                 cell_rhs(i) +=  (face_values.shape_value(i, q)    //  \phi_i
@@ -277,11 +300,8 @@ namespace Nonlinear {
         }
         system_matrix.set(dof, dof, 1.);
         system_rhs(dof) =  0.;
-        //std::cout << "setting boundary at dof: " << dof << std::endl;
         }
     }
-     
-    //std::cout << "system_rhs: " << system_rhs << std::endl;
   } // assemble system
 
 
@@ -293,9 +313,12 @@ namespace Nonlinear {
   ) {
       if (this -> problem_case == ProblemCase::Case_1)
         neumann_data = {{Boundary::Neumann_Case_1, &nc1_fcn}};
-
       else if (problem_case == ProblemCase::Case_2)
         neumann_data = {{Boundary::Neumann_Case_2, &nc2_fcn}};
+      else if (problem_case == ProblemCase::Case_3)
+        neumann_data = {{Boundary::Neumann_Case_3, &nc3_fcn}};
+      else
+        AssertThrow(false, ExcNotImplemented());
   } // get_neumann_data
 
 
@@ -305,7 +328,6 @@ namespace Nonlinear {
   {
     std::cout << "Imposing boundary condition ..." << std::endl;
     const auto& boundary_dofs = tria.get_boundary_dofs();
-    unsigned int n_global_dofs = tria.n_active_splines();
     // For the case the initial mesh has no boundary dofs
     if (boundary_dofs.size() == 0)
       return;
@@ -320,29 +342,11 @@ namespace Nonlinear {
         double
       > boundary_values;
 
-    if (problem_case == ProblemCase::Case_1)
-    {
-      
-    }
-    else if (problem_case == ProblemCase::Case_2)
-    {
-      
-    }
-
     // Secondly set the zero Dirichlet boundary values
     if (boundary_dofs.find(Boundary::Dirichlet_0) 
           != boundary_dofs.end())
       for (const auto& dof : boundary_dofs.at(Boundary::Dirichlet_0))
         boundary_values[dof] = 0.;
-
-    // print boundary values
-    //std::cout << "Boundary dofs of Dirichlet_0: " << std::endl;
-    //const auto& splines = tria.get_splines(); 
-    //for (const auto& dof : boundary_dofs.at(Boundary::Dirichlet_0)){
-    //  const auto& ts = splines.at(dof); 
-    //  const auto& anchor = ts -> get_anchor();
-    //  std::cout << dof << ": " << 0.5 * anchor.first + 0.5*anchor.second << ", value = " << boundary_values.at(dof) << std::endl;
-    //} // for ( dof )
     
     MatrixTools::apply_boundary_values(
       boundary_values, 
@@ -350,7 +354,6 @@ namespace Nonlinear {
       current_solution,
       system_rhs
     );
-
   } // impose_boundary_condition
 
 
@@ -389,7 +392,7 @@ namespace Nonlinear {
                            current_solution,
                            local_residuals
                            );
-      tria.refine_fixed_number(local_residuals, 0.10);
+      tria.refine_fixed_number(local_residuals, 0.20);
     }
 
     tria.prepare_assembly();
@@ -567,20 +570,14 @@ namespace Nonlinear {
   void Nonlinear3D_Benchmark::solve_system()
   {
 
-
     newton_update = system_rhs;
     SparseDirectUMFPACK A_direct;
     A_direct.solve(system_matrix, newton_update);
 
 
-
     // Add the update to the current solution
-
-
     double alpha = determine_step_length_const();
     current_solution.add(alpha, newton_update);
-    //std::cout << "newton_update:    " << newton_update << std::endl;
-    //std::cout << "current_solution: " << current_solution << std::endl;
 
     // Add current solution values to the Tsplines data structure
     const auto& splines = tria.get_splines();
@@ -599,16 +596,20 @@ namespace Nonlinear {
   {
     std::cout << "Running benchmark ... " << std::endl;
     unsigned int old_level = 0;
-
-    setup_system();
-    // Set initial solution u_0 to zero. 
-
-    Vector<double> current_residuals;
-    current_residuals = 0.;
-    current_solution = 0.;
     const std::vector<unsigned int>& degrees = tria.get_degree();
+    setup_system();
 
-    // boundary condition on the first solution u_0
+  
+    // Set initial solution u_0 to zero. 
+    current_solution = 0.;
+
+    // get Neumann data for estimating error
+    Vector<double> current_residuals;
+    std::map< types::boundary_id,
+              const Function<3>* >   neumann_data = {};
+    get_neumann_data(neumann_data);    
+
+    // boundary condition on the first solution u_0 and system
     impose_boundary_condition();
 
 
@@ -617,17 +618,17 @@ namespace Nonlinear {
     while (tria.n_levels() < this -> ref + 1)
     {
       std::cout << "  Refinement cycle " << cycle << ':' << std::endl;
-      
+      if (cycle != 0)
+      {
+        estimate_and_mark();
+        setup_system();
+        tria.transfer_solution(current_solution);
+        impose_boundary_condition();
+      }
 
-
-
-      std::map< types::boundary_id,
-              const Function<3>* >   neumann_data = {};
-      get_neumann_data(neumann_data);
-      std::cout << "neumann_data size: "<< neumann_data.size() << std::endl;  
+      // Estimate residual before Newton
       current_residuals.reinit(tria.n_active_cells());
-      std::cout << "   Computing residual error estimate ..." << std::endl;
-      tria.nonlinear3d_residual_error_estimate(
+      tria.nonlinear_residual_error_estimate(
               {degrees[0]*degrees[0] + 1,
                degrees[1]*degrees[1] + 1},
                exponent,
@@ -637,29 +638,12 @@ namespace Nonlinear {
                current_residuals
                );
 
-      std::cout << " n_levels: " << tria.n_levels() << std::endl;
+      std::cout << " On Refinement level: " << tria.n_levels() << std::endl;
       
-      double initial_residual = system_rhs.l2_norm();
-      std::cout << "    Initial norm of estimator: " << initial_residual << std::endl;
+      double initial_estimator = current_residuals.l2_norm();
+      std::cout << "    Initial estimated norm: " 
+                << initial_estimator << std::endl;
 
-
-      std::string name_norm =  problem_out.dat.string() 
-                            + "norm_l" 
-                            + std::to_string(tria.n_levels() - 1) 
-                            + ".dat";
-      // outputs iteration and norms
-      std::ofstream norm_file(name_norm.c_str(), std::ios::app); // Open file in append mode
-
-      if (cycle != 0)
-      {
-        
-        estimate_and_mark();
-        setup_system();
-        tria.transfer_solution(current_solution);
-        impose_boundary_condition();
-
-
-      }
       unsigned int newton_iteration = 0;
       double  current_norm = 1., current_residual = 1.;
       do {
@@ -670,33 +654,24 @@ namespace Nonlinear {
 
 
         current_residual = system_rhs.l2_norm();
-        std::cout << "Residual of N_It " << newton_iteration+1 
-                  << ":   " << std::fixed << std::setprecision(8) << current_residual;
+        std::cout << "     ||system_rhs|| " << newton_iteration+1 
+                  << ":   " << std::fixed << std::setprecision(8) 
+                  << current_residual;
 
         current_norm = newton_update.l2_norm();
-        std::cout << "      L2 ||update_n+1|| " 
-                  << ":   " << std::fixed << std::setprecision(8) << current_norm << std::endl;
+        std::cout << "      ||update_n+1|| " 
+                  << ":   " << std::fixed << std::setprecision(8) 
+                  << current_norm << std::endl;
 
-        if (norm_file.is_open()) {
-          norm_file << newton_iteration + 1 << " " // Add iteration number for reference
-              << std::fixed << std::setprecision(8) << current_residual << " "
-              << std::fixed << std::setprecision(8) << current_norm << "\n";
-        } else 
-            std::cerr << "Error: Unable to open file for writing.\n";
-        
-        
-        
         newton_iteration++;
-
       } // do ( ... )
       while (newton_iteration < 300
-             && current_norm > 1e-6
+             && current_norm > 1e-8
             );
 
-      norm_file.close(); // Close the file
 
       current_residuals.reinit(tria.n_active_cells());
-      tria.nonlinear3d_residual_error_estimate(
+      tria.nonlinear_residual_error_estimate(
                     {degrees[0]*degrees[0] + 1,
                      degrees[1]*degrees[1] + 1},
                      exponent,
@@ -705,15 +680,15 @@ namespace Nonlinear {
                      current_solution,
                      current_residuals
                      );
-      std::cout << "    Last norm of estimator: " 
-                << current_residuals.l2_norm() << std::endl;
-      std::cout << "    Last residual: " 
-                << std::fixed << std::setprecision(5)
-                << current_residual << "\n\n"<< std::endl;
 
-      std::cout << "Outputting system after last newton iteration ..." << std::endl;
-      if (cycle != 0 && tria.n_levels() != old_level)
+      double last_estimator = current_residuals.l2_norm();
+      std::cout << "   Estimated Norm: " 
+                << last_estimator << "\n\n" << std::endl;
+
+      if (tria.n_levels() != old_level)
       {
+        std::cout << "Outputting system after last newton iteration ..." << std::endl;
+
         std::cout << " Print table in cycle: " << cycle << std::endl; 
         problem_out.add_values_to_table(
           tria.n_levels() - 1,
@@ -722,13 +697,13 @@ namespace Nonlinear {
           tria.n_active_splines(),
           newton_iteration,
           current_norm,
-          current_residual,
-          initial_residual
+          last_estimator,
+          initial_estimator
         );
         // Output the table to a file preemptively
         problem_out.write_table_text();
         problem_out.write_table_tex();
-        if (tria.n_levels() < 13)
+        if (tria.n_levels() < 17)
           output_system();
       }
       old_level = tria.n_levels();
@@ -748,15 +723,23 @@ namespace Nonlinear {
 
     return out;
   } // value 
-
-  Tensor<1, 3> Nonlinear3D_RHS1::gradient(
+  double Nonlinear3D_RHS2::value(
     const Point<3>&     /*p*/, 
     const unsigned int /* component */
   ) const {
-    Tensor<1, 3> out;
+    double out = 0.;
 
     return out;
-  } // gradient 
+  } // value
+
+  double Nonlinear3D_RHS3::value(
+    const Point<3>&     /*p*/, 
+    const unsigned int /* component */
+  ) const {
+    double out = 0.;
+
+    return out;
+  } // value
 
   double Nonlinear3D_NC1::value(
     const Point<3>&     /*p*/, 
@@ -768,13 +751,22 @@ namespace Nonlinear {
   } // value 
 
   double Nonlinear3D_NC2::value(
+    const Point<3>&     p, 
+    const unsigned int /* component */
+  ) const {
+    double out = 1.;
+    out = std::sin(4. * numbers::PI * p[1]);
+    return out;
+  } // value 
+
+  double Nonlinear3D_NC3::value(
     const Point<3>&     /*p*/, 
     const unsigned int /* component */
   ) const {
     double out = 1.;
 
     return out;
-  } // value 
+  } // value
 
 
   IPF_Data<3> Nonlinear3D_Benchmark::get_IPF_data() const

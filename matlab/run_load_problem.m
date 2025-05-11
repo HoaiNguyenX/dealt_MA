@@ -155,8 +155,8 @@ colorbar
 
 %% nonlinear2d k=3 case 1
 
-o = 2; l = 14; dim = 3; 
-out_path = './img_out/nonlinear2d_k3_c1_1';
+o = 4; l = 12; dim = 3; 
+out_path = './img_out/nonlinear2d_k3c1_p4_l12';
 data = {'solution'};
 problem = '../out/nonlinear2d_adaptive/k3_case_1/';
 load_problem(data, problem, out_path, o, l, 14);
@@ -164,18 +164,18 @@ colorbar
 
 %% nonlinear2d k=3 case 2
 
-o = 2; l = 10; dim = 3; 
-out_path = './img_out/nonlinear2d_k3_c2_1';
+o = 2; l = 12; dim = 3; 
+out_path = './img_out/nonlinear2d_k3c2_p2_l12_';
 data = {'solution'};
 problem = '../out/nonlinear2d_adaptive/k3_case_2/';
 load_problem(data, problem, out_path, o, l, 14);
 colorbar
 
-%% nonlinear2d k=3 case 2
+%% nonlinear2d k=3 case 3
 
-o = 2; l = 10; dim = 3; 
-out_path = './img_out/nonlinear2d_k3_c3_1';
+o = 2; l = 12; dim = 2; 
+out_path = './img_out/nonlinear2d_k3c3_p2_l12_';
 data = {'solution'};
-problem = '../out/nonlinear2d_adaptive/k3_case_2/';
-load_problem(data, problem, out_path, o, l, 14);
+problem = '../out/nonlinear2d_adaptive/k3_case_3/';
+load_problem(data, problem, out_path, o, l, 12);
 colorbar

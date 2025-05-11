@@ -72,11 +72,27 @@ namespace Nonlinear {
       const Point<3>&       p,
       const unsigned int    component = 0
     ) const override;
-        
-    virtual Tensor<1, 3> gradient(
+  };
+  class Nonlinear3D_RHS2 : public Function<3> {
+  public:
+    Nonlinear3D_RHS2() : Function<3>(1) {}
+    ~Nonlinear3D_RHS2() = default;
+
+    virtual double value(
       const Point<3>&       p,
       const unsigned int    component = 0
-    ) const override; 
+    ) const override;
+  };
+
+  class Nonlinear3D_RHS3 : public Function<3> {
+  public:
+    Nonlinear3D_RHS3() : Function<3>(1) {}
+    ~Nonlinear3D_RHS3() = default;
+
+    virtual double value(
+      const Point<3>&       p,
+      const unsigned int    component = 0
+    ) const override;
   };
 
   class Nonlinear3D_NC1 : public Function<3> {
@@ -99,6 +115,17 @@ namespace Nonlinear {
     ) const override;
   };
 
+  class Nonlinear3D_NC3 : public Function<3> {
+  public:
+    Nonlinear3D_NC3() : Function<3>(1) {}
+    ~Nonlinear3D_NC3() = default;
+    virtual double value(
+      const Point<3>& p,
+      const unsigned int     component = 0
+    ) const override;
+  };
+
+
 
 
   class Nonlinear3D_Benchmark
@@ -106,9 +133,10 @@ namespace Nonlinear {
     enum Boundary {
       None, 
       Dirichlet_0,
+      Dirichlet_2,
       Neumann_Case_1,
       Neumann_Case_2,
-      Dirichlet
+      Neumann_Case_3
     };
 
   private:
@@ -138,6 +166,7 @@ namespace Nonlinear {
     Function<3>*              rhs_fcn;
     Nonlinear3D_NC1           nc1_fcn;
     Nonlinear3D_NC2           nc2_fcn;
+    Nonlinear3D_NC3           nc3_fcn;
 
     ProblemCase               problem_case;
     RefinementStrategy        refinement_strategy;
@@ -169,7 +198,6 @@ namespace Nonlinear {
     double determine_step_length_const() const {return 1;};
     double determine_step_length_LS() const;
     void   estimate_and_mark();   
-    void   print_numerical_solution(std::string addition = "");
     void   get_neumann_data(
       std::map< types::boundary_id,
                       const Function<3>* >& neumann_data

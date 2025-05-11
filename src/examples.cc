@@ -1038,7 +1038,23 @@ void print_example(std::string ex, int ref, int order){
       Nonlinear::RefinementStrategy::Adaptive
       );
     problem.run();
-
+  } else if (ex == "nonlinear2d_k3_c3_uni") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_3
+      );
+    problem.run();
+  } else if (ex == "nonlinear2d_k3_c3_ad") {
+    Nonlinear::Nonlinear2D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_3,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
 
 
 
@@ -1077,6 +1093,25 @@ void print_example(std::string ex, int ref, int order){
       Nonlinear::RefinementStrategy::Adaptive
       );
     problem.run();
+  } else if (ex == "nonlinear3d_k3_c3_uni") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_3
+      );
+    problem.run();
+  } else if (ex == "nonlinear3d_k3_c3_ad") {
+    Nonlinear::Nonlinear3D_Benchmark problem(
+      ref, 
+      order,
+      3,
+      Nonlinear::ProblemCase::Case_3,
+      Nonlinear::RefinementStrategy::Adaptive
+      );
+    problem.run();
+
+
 
 
   } else if (ex == "nonlinear3d_k1_c1_uni") {

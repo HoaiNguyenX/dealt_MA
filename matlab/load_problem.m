@@ -545,7 +545,7 @@ if contains(name, 'solution')
     xi = false;
 end
 
-fs = 50;
+fs = 25;
 set(gca, 'FontSize', fs/2);
 if ~strcmp(name, 'sparsity_pattern')
     if xi
@@ -583,7 +583,7 @@ set(gca, 'ZTickLabel', {0, 1});
 set(gca, 'xtick', [0, 1]);
 set(gca, 'ytick', [0, 1]);
 set(gca, 'ztick', [0, 1]);
-
+colorbar;
 
 % Set position of figure
 % if ~strcmp(name, 'sparsity_pattern')
@@ -592,11 +592,12 @@ set(gca, 'ztick', [0, 1]);
 % else
 %     fig.Position = [577 239 1064 864];
 % end
-fig.Position = [0 0 500 500];
+fig.Position = [0 0 870 800];
 
 % Get figure as matrix
 frame        = getframe(fig);
 im           = frame2im(frame);
+
 
 % Set background to match block background on poster
 % background = 230;

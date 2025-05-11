@@ -24,7 +24,8 @@ namespace dealt {
       update_values |
       update_gradients |
       update_quadrature_points |
-      update_JxW_values
+      update_JxW_values |
+      update_hessians
     );
     TSFaceValues<dim, spacedim> face_values(
       this, degrees,
@@ -102,22 +103,32 @@ namespace dealt {
       ts_values.reinit(cell);
 
       // get old solution gradient
-      std::vector< Tensor<1, spacedim> > sol_grad(ts_values.n_quadrature_points_per_cell());
-      ts_values.get_function_gradients(solution, sol_grad);
+      std::vector< Tensor<1, spacedim> > grad_u(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_gradients(solution, grad_u);
+
+      // get old solution hessian
+       std::vector< Tensor<2, spacedim> > hessian_u(ts_values.n_quadrature_points_per_cell());
+       ts_values.get_function_hessians(solution, hessian_u);
       
       for ( const unsigned int q_index : ts_values.quadrature_point_indices()){
 
-        // coefficient a_n depending on old solution gradient for readability
-        const double coeff = 1. / std::sqrt(1 + sol_grad[q_index] * sol_grad[q_index]);
-        double g = 0.;
-        for (const unsigned int i : ts_values.dof_indices() ){
-          double tmp = ts_values.shape_grad(i, q_index)
-                            * coeff     
-                            * sol_grad[q_index];
-          g += tmp * tmp;            
+        double first_term = 0., 
+               second_term = 0.,
+               laplace_u = 0.;
+
+        for (unsigned int d = 0; d < space_dimension; d++)
+            laplace_u += hessian_u[q_index][d][d];
+
+        for (const unsigned int i : ts_values.dof_indices() )
+        {
+          first_term += (1 + grad_u[q_index].norm_square())
+                         * laplace_u;
+          second_term += grad_u[q_index] * hessian_u[q_index]
+                         * grad_u[q_index];
         } // for ( i )
 
-        local_residual += g * ts_values.JxW(q_index);
+        double tmp = first_term - second_term;
+        local_residual += tmp * tmp * ts_values.JxW(q_index);
       } // for ( q_index )
       const double cell_width = (cell->vertex(0)).distance(
                                 cell->vertex(nvc - 1));
@@ -294,12 +305,12 @@ namespace dealt {
       ts_values.reinit(cell);
 
       // get old solution gradient
-      std::vector< Tensor<1, spacedim> > sol_grad(ts_values.n_quadrature_points_per_cell());
-      ts_values.get_function_gradients(solution, sol_grad);
+      // std::vector< Tensor<1, spacedim> > sol_grad(ts_values.n_quadrature_points_per_cell());
+      // ts_values.get_function_gradients(solution, sol_grad);
 
       // get old solution hessian
-      std::vector< Tensor<2, spacedim> > sol_hess(ts_values.n_quadrature_points_per_cell());
-      ts_values.get_function_hessians(solution, sol_hess);
+      std::vector< Tensor<2, spacedim> > hessian_u(ts_values.n_quadrature_points_per_cell());
+      ts_values.get_function_hessians(solution, hessian_u);
       
       for ( const unsigned int q_index : ts_values.quadrature_point_indices()){
 
@@ -308,16 +319,11 @@ namespace dealt {
         const Point<space_dimension>& Q = ts_values.quadrature_point(q_index);
         double rhs = rhs_fcn -> value(Q);
 
+        for (unsigned int d = 0; d < space_dimension; d++)
+              laplace_u += hessian_u[q_index][d][d];
+
         for (const unsigned int i : ts_values.dof_indices() )
-        {
-          double laplace = 0.;
-          for (unsigned int d = 0; d < space_dimension; d++)
-            laplace += ts_values.shape_hessian(i, q_index)[d][d];
-
-          laplace_u += laplace * solution(local_dof_indices[i]);
-          nonlinearity = std::pow(solution(local_dof_indices[i]),k);
-
-        } // for ( i )
+          nonlinearity += std::pow(solution(local_dof_indices[i]),k);
 
         double tmp = rhs + laplace_u - nonlinearity;
         local_residual += tmp * tmp * ts_values.JxW(q_index);

@@ -225,7 +225,7 @@ namespace dealt {
      }
 
     cycles = cycle - prev_cycles;
-    prev_cycles = cycle;
+    
     // Add values to table
     table.add_value("Level",  level);
     table.add_value("Cells",  n_cells);
@@ -235,6 +235,9 @@ namespace dealt {
     table.add_value("update_norm", update_norm);
     table.add_value("initial_norm", initial_norm);
     table.add_value("last_norm", last_norm);
+
+    if (prev_level != 0 && level == prev_level)
+      prev_cycles = cycle;
   }
 
 
@@ -282,6 +285,9 @@ if (prev_level != 0 && level == prev_level) {
     table.add_value("last_residual", residual);
     table.add_value("L2", L2);
     table.add_value("H1", H1);
+
+    if (prev_level != 0 && level == prev_level)
+      prev_cycles = cycle;
   }
 
   void OutputSetup::add_values_to_table(

@@ -70,7 +70,7 @@ for o = p_min:p_max
         opts = detectImportOptions(problem);
 %       readVariables = ["Level", "Cells", "DoFs", "L2", "H1", "k__CG_", "TOL__CG_"];
 %         readVariables = ["Level", "Cells", "DoFs_uniform", "DoFs", "L2", "H1_uniform", "H1", "k__CG_", "TOL__CG_"];
-        readVariables = ["Level", "Cells", "DoFs", "k__Newton_", "update_norm", "initial_norm", "last_norm", "L2", "H1"];
+        readVariables = ["Level", "Cells", "DoFs", "k__Newton_", "update_norm", "initial_residual", "last_residual", "L2", "H1"];
 %         readVariables = ["Level", "Cells", "DoFs_uniform", "DoFs", "k__CG_", "TOL__CG_"];
         opts.SelectedVariableNames = readVariables;
         data = readtable(problem, opts);
@@ -185,10 +185,10 @@ for o = p_min:p_max
     
     % We have loaded every needed data field into local variables, so we
     % can delete B again
-    clear B;
+    %clear B;
     
     % Get the plot:
-    figure(fig1);
+    figure(fig1); hold on
     i = mod(o-offset-read_offset-1, n_colors)+1;
 %    loglog(dofs, h1, ...
 %        'Color', Colors(i, :), ...
@@ -210,18 +210,18 @@ for o = p_min:p_max
 %         );
     
     loglog(dofs(index), ref(index), ...
-        'Color', Colors(i+1, :), ...
+        'Color', Colors(i, :), ...
         'LineStyle', ':',       ...
         'Marker', Markers{i},  ...
         'LineWidth', lw        ...
         );
     labels1{ind} = ['$$p = ' num2str(o) '$$'];
 %     labels1{ind+1} = ['$$p = ' num2str(o) '$$, uniform'];
-    if ~strcmp(ref_index, 'none')
+%    if ~strcmp(ref_index, 'none')
         labels1{ind+1} = ['$$\mathcal{O}(h^{' num2str(o+1) '})$$'];
-    end
+%    end
     
-    figure(fig2);
+    %figure(fig2);
     loglog(dofs, k, ...
         'Color', Colors(i, :), ...
         'LineStyle', '-',             ...
@@ -248,7 +248,7 @@ xlabel('DoFs',                  ...
 ylabel('$$\| \mathbf{r} \|_{L_2(\widetilde\Omega)}$$', ...
     'Interpreter', 'latex',         ...
     'FontSize', fs)
-legend(labels1, labels2, ...
+legend([labels1, labels2], ...
     'Interpreter', 'latex', ...
     'Location', 'southwest')
 
@@ -258,7 +258,7 @@ legend(labels1, labels2, ...
 % print the figures to files
 if ~isempty(name)
     print_figure(fig1, [name '_h1_errors']);
-    print_figure(fig1, [name '_l2_errors']);
+    %print_figure(fig1, [name '_l2_errors']);
     %print_figure(fig2, [name '_cg_iters']);
 end
 

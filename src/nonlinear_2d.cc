@@ -54,8 +54,6 @@ namespace Nonlinear {
       name += "case_3/";
       rhs_fcn = new Nonlinear2D_RHS3();
     }
-
-    
     else
       AssertThrow(false, ExcNotImplemented());
 
@@ -106,17 +104,11 @@ namespace Nonlinear {
       else if (problem_case == ProblemCase::Case_2)
       {
         const Point<2>& c = face -> center();
-        if (std::fabs(c(0)) < 1e-15)
-          face -> set_boundary_id(Boundary::Neumann_Case_2);
-        else
-          face -> set_boundary_id(Boundary::Dirichlet_0);
+        face -> set_boundary_id(Boundary::Dirichlet_0);
       }
       else if (problem_case == ProblemCase::Case_3)
       {
         const Point<2>& c = face -> center();
-        if (std::fabs(c(0)) < 1e-15)
-          face -> set_boundary_id(Boundary::Neumann_Case_3);
-        else
           face -> set_boundary_id(Boundary::Dirichlet_0);
       }
       else
@@ -158,7 +150,6 @@ namespace Nonlinear {
     system_rhs    = 0;
 
     // Setup initial tables that store the bernstein values / grads / hessians.
-  
     std::vector< unsigned int > degrees = tria.get_degree();
     degrees[0] = degrees[0]  + 2;
     degrees[1] = degrees[1]  + 2;
@@ -259,7 +250,6 @@ namespace Nonlinear {
                 cell_rhs(i) +=  (face_values.shape_value(i, q)    //  \phi_i
                                   *  g_value)                     //  * g
                                 * face_values.JxW(q);             // * dx
-              
             } // for ( q )
           } // if ( Neumann)
 
@@ -272,7 +262,6 @@ namespace Nonlinear {
 
       system_matrix.add(local_dof_indices, cell_matrix);
       system_rhs.add(local_dof_indices, cell_rhs);
-
     } // for ( cell )
 
 
@@ -321,14 +310,13 @@ namespace Nonlinear {
     if (boundary_dofs.size() == 0)
       return;
 
-    std::vector< unsigned int > degrees = tria.get_degree();
-    degrees[0] = degrees[0]  + 1;
-    degrees[1] = degrees[1]  + 1;
-
     std::map<
         types::global_dof_index, 
         double
       > boundary_values;
+
+    // Firstly set non-zero Dirichlet boundary values
+
 
     // Secondly set the zero Dirichlet boundary values
     if (boundary_dofs.find(Boundary::Dirichlet_0) 
@@ -438,7 +426,7 @@ namespace Nonlinear {
     //   std::cout << "index = " << index << std::endl;
     // }
   
-    if (tria.n_levels() - 1 < 17) {
+    if (tria.n_levels() - 1 < 13) {
       std::filebuf mat, vec, sol;
       mat.open(matrix.c_str(), std::ios::out);
       vec.open(vector.c_str(), std::ios::out);
@@ -588,16 +576,9 @@ namespace Nonlinear {
     SparseDirectUMFPACK A_direct;
     A_direct.solve(system_matrix, newton_update);
 
-
     // Add the update to the current solution
     double alpha = determine_step_length_const();
     current_solution.add(alpha, newton_update);
-
-    // Add current solution values to the Tsplines data structure
-    const auto& splines = tria.get_splines();
-    for (unsigned int i = 0; i < tria.n_active_splines(); i++)
-        splines[i] -> set_solution(current_solution[i]);
-
   } // solve_system
 
 
@@ -666,8 +647,7 @@ namespace Nonlinear {
     const std::vector<unsigned int>& degrees = tria.get_degree();
     setup_system();
 
-    
-
+  
     // Set initial solution u_0 to zero. 
     current_solution = 0.;
 
@@ -688,6 +668,11 @@ namespace Nonlinear {
       std::cout << "  Refinement cycle " << cycle << ':' << std::endl;
       if (cycle != 0)
       {
+            // Add current solution values to the Tsplines data structure
+    const auto& splines = tria.get_splines();
+    for (unsigned int i = 0; i < tria.n_active_splines(); i++)
+        splines[i] -> set_solution(current_solution[i]);
+
         estimate_and_mark();
         setup_system();
         tria.transfer_solution(current_solution);
@@ -712,14 +697,6 @@ namespace Nonlinear {
       std::cout << "    Initial estimated norm: " 
                 << initial_estimator << std::endl;
 
-      std::string name_norm =  problem_out.dat.string() 
-                            + "norm_l" 
-                            + std::to_string(tria.n_levels() - 1) 
-                            + ".dat";
-      // outputs iteration and norms
-      std::ofstream norm_file(name_norm.c_str(), std::ios::app); // Open file in append mode
-
-
 
       unsigned int newton_iteration = 0;
       double  current_norm = 1., current_residual = 1.;
@@ -731,7 +708,7 @@ namespace Nonlinear {
 
 
         current_residual = system_rhs.l2_norm();
-        std::cout << "     ||sysem_rhs|| " << newton_iteration+1 
+        std::cout << "     ||system_rhs|| " << newton_iteration+1 
                   << ":   " << std::fixed << std::setprecision(8) 
                   << current_residual;
 
@@ -739,21 +716,13 @@ namespace Nonlinear {
         std::cout << "      ||update_n+1|| " 
                   << ":   " << std::fixed << std::setprecision(8) 
                   << current_norm << std::endl;
-
-        if (norm_file.is_open()) {
-          norm_file << newton_iteration + 1 << " " // Add iteration number for reference
-              << std::fixed << std::setprecision(8) << current_residual << " "
-              << std::fixed << std::setprecision(8) << current_norm << "\n";
-        } else 
-            std::cerr << "Error: Unable to open file for writing.\n";
         
         newton_iteration++;
       } // do ( ... )
       while (newton_iteration < 300
-             && current_norm > 1e-8
+             && current_norm > 1e-12
             );
 
-      norm_file.close(); // Close the file
 
       current_residuals.reinit(tria.n_active_cells());
       tria.nonlinear_residual_error_estimate(
@@ -770,7 +739,7 @@ namespace Nonlinear {
       std::cout << "   Estimated Norm: " 
                 << last_estimator << "\n\n" << std::endl;
 
-      if (tria.n_levels() != old_level)
+      if (cycle != 0 && tria.n_levels() != old_level)
       {
         std::cout << "Outputting system after last newton iteration ..." << std::endl;
 
@@ -789,7 +758,7 @@ namespace Nonlinear {
         // Output the table to a file preemptively
         problem_out.write_table_text();
         problem_out.write_table_tex();
-        if (tria.n_levels() < 17)
+        if (tria.n_levels() < 25)
           output_system();
       }
       old_level = tria.n_levels();
@@ -811,10 +780,12 @@ namespace Nonlinear {
   } // value 
 
   double Nonlinear2D_RHS2::value(
-    const Point<2>&     /*p*/, 
+    const Point<2>&     p, 
     const unsigned int /* component */
   ) const {
-    double out = 1.;
+    double out = 0.;
+    out = 100 * std::exp(-100 * ((p[0] - 0.5) * (p[0] - 0.5) 
+                                + (p[1] - 0.5) * (p[1] - 0.5))); 
     return out;
   } // value 
 
@@ -822,7 +793,7 @@ namespace Nonlinear {
     const Point<2>&     /*p*/, 
     const unsigned int /* component */
   ) const {
-    double out = 0.;
+    double out = 1.;
     return out;
   } // value 
 
@@ -841,7 +812,7 @@ namespace Nonlinear {
     const unsigned int /* component */
   ) const {
     double out = 0.;
-    out = std::sin(4. * numbers::PI * p[1]);
+
     return out;
   } // value 
 
@@ -853,6 +824,8 @@ namespace Nonlinear {
 
     return out;
   } // value 
+
+
 
 
 
