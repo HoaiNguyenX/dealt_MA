@@ -118,18 +118,18 @@ load_problem(data, problem, out_path, o, l, 1);
 
 %% Minimal surface square consecutive grid
 
-o = 2; l = 9; dim = 3; 
-out_path = './img_out/minimal_surface_square_consecutivegrid';
+o = 4; l = 10; dim = 3; 
+out_path = './img_out/nonlinear_consgrid';
 data = {'grid_consecutive'};
-problem = '../out/minimal_surface_square_adaptive/';
+problem = '../out/nonlinear2d_adaptive/k3_case_1/';
 load_problem(data, problem, out_path, o, l, 1);
 
 
 %% Minimal surface catenoid
 
-o = 2; l = 11; dim = 3; 
+o = 2; l = 8; dim = 3; 
 out_path = './img_out/minimal_surface_catenoid_aa';
-data = {'physical_grid'};
+data = {'solution'};
 problem = '../out/minimal_surface_annulus_adaptive/';
 load_problem(data, problem, out_path, o, l, 14);
 colorbar

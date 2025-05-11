@@ -100,8 +100,8 @@ namespace dealt {
       const unsigned int  &n_dofs,
       const unsigned int  &k_newton,
       const double        &update_norm,
-      const double        &residual,
-      const double        &initial_residual,
+      const double        &last_norm,
+      const double        &initial_norm,
       const double        &L2,
       const double        &H1,
       const bool          &clear = false

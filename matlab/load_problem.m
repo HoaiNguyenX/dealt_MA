@@ -583,7 +583,7 @@ set(gca, 'ZTickLabel', {0, 1});
 set(gca, 'xtick', [0, 1]);
 set(gca, 'ytick', [0, 1]);
 set(gca, 'ztick', [0, 1]);
-colorbar;
+%colorbar;
 
 % Set position of figure
 % if ~strcmp(name, 'sparsity_pattern')
@@ -592,7 +592,8 @@ colorbar;
 % else
 %     fig.Position = [577 239 1064 864];
 % end
-fig.Position = [0 0 870 800];
+%fig.Position = [0 0 870 800];
+fig.Position = [0 0 1670 800];
 
 % Get figure as matrix
 frame        = getframe(fig);

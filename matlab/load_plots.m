@@ -1,12 +1,12 @@
 %% Plot surface plot
 % Define the directory where the .dat files are located
-data_dir1 = '/home/ifam-studenten/nguyen/dealt_MA/out/nonlinear2d_adaptive/k3_case_1/o2/02dat';
-data_dir2 = '/home/ifam-studenten/nguyen/dealt_MA/out/nonlinear2d_adaptive/k3_case_1/o2/02dat';
+data_dir1 = '/home/ifam-studenten/nguyen/dealt_MA/out/minimal_surface_square_adaptive/o2/02dat';
+%data_dir2 = '/home/ifam-studenten/nguyen/dealt_MA/out/nonlinear2d_adaptive/k3_case_1/o2/02dat';
 
 
 % Define the number of refinement levels
 iteration =2;
-num_levels = 10;
+num_levels = 11;
 N = 31;
 
 % Initialize a cell array to store data
@@ -21,10 +21,10 @@ data6 = cell(num_levels, 1);
 for level = 1:num_levels
     lev = level+1;
     filename1 = fullfile(data_dir1, sprintf('numsol_l%d.dat', level)); 
-    filename2 = fullfile(data_dir2, sprintf('numsol_l%d.dat', level));
+    %filename2 = fullfile(data_dir2, sprintf('numsol_l%d.dat', level));
 
     data1{level} = load(filename1); % Load the .dat file into a matrix
-    data2{level} = load(filename2);
+    %data2{level} = load(filename2);
 end
 figure;
 hold on; % Allow multiple plots on the same figure
@@ -34,7 +34,7 @@ level = num_levels;
     x = data1{level}(1, :);
     y = data1{level}(2, :);
     solution1 = data1{level}(3, :);
-    solution2 = data2{level}(3, :);
+    %solution2 = data2{level}(3, :);
 
     
     

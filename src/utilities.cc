@@ -206,15 +206,6 @@ namespace dealt {
     const double        &initial_norm,
     const bool          &clear
   ) {
-    // if (prev_level != 0 && level == prev_level) {
-    //   //remove row from table
-    //   table.clear_current_row(); 
-    //   cycles++;
-    // } else {
-    //   prev_level = level;
-    //   cycles = 1;
-    // }
-
     if (prev_level != 0 && level == prev_level) {
        //remove row from table
        table.clear_current_row();
@@ -248,22 +239,13 @@ namespace dealt {
     const unsigned int  &n_dofs,
     const unsigned int  &k_newton,
     const double        &update_norm,
-    const double        &residual,
-    const double        &initial_residual,
+    const double        &last_norm,
+    const double        &initial_norm,
     const double        &L2,
     const double        &H1,
     const bool          &clear
   ) {
-    // if (prev_level != 0 && level == prev_level) {
-    //   //remove row from table
-    //   table.clear_current_row(); 
-    //   cycles++;
-    // } else {
-    //   prev_level = level;
-    //   cycles = 1;
-    // }
-
-if (prev_level != 0 && level == prev_level) {
+    if (prev_level != 0 && level == prev_level) {
        //remove row from table
        table.clear_current_row();
        cycles++;
@@ -281,8 +263,8 @@ if (prev_level != 0 && level == prev_level) {
     table.add_value("Cycles", cycles);
     table.add_value("k_{Newton}",   k_newton);
     table.add_value("update_norm", update_norm);
-    table.add_value("initial_residual", initial_residual);
-    table.add_value("last_residual", residual);
+    table.add_value("initial_norm", initial_norm);
+    table.add_value("last_norm", last_norm);
     table.add_value("L2", L2);
     table.add_value("H1", H1);
 

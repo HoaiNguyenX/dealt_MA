@@ -9,10 +9,7 @@ namespace Minimal_Surface {
     ) const {
     double a = 0.5;
     double out = 0.;
-    //if (p[0] >= 0. && p[0] < 0.5)
-    //  out = a*p[0];
-    //else if(p[0] >= 0.5 && p[0] <= 1.)
-    //  out = a*(1 - p[0]);
+
     if (p[0] >= 0. && p[0] < 0.25)
       out = a*p[0];
     else if (p[0] >= 0.25 && p[0] < 0.5)

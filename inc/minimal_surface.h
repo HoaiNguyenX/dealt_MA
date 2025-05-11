@@ -209,12 +209,13 @@ namespace Minimal_Surface {
     void   solve_system();
     void   estimate_and_mark();  
 
-    double compute_residual_for_steplength(double alpha);
     double determine_step_length_const() {return 1;};
     double determine_step_length_LS();
 
     void   output_system(); 
-    void   print_numerical_solution(std::string addition = "");
+    void   print_numerical_solution(
+      Vector<double>& vector,
+      std::string addition = "");
   };
 
 } // namespace Minimal_Surface
