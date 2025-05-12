@@ -60,16 +60,6 @@ namespace Minimal_Surface {
   using namespace dealt;
   using namespace dealii;
 
-  class Minimal_DC_circle : public Function<2> {
-  public:
-    Minimal_DC_circle() : Function<2>(1) {}
-    ~Minimal_DC_circle() = default;
-
-    virtual double value(
-      const Point<2>&     p,
-      const unsigned int  component = 0
-    ) const override;
-  };
 
   class Minimal_SOL_catenoid : public Function<2> {
   public:
@@ -127,8 +117,6 @@ namespace Minimal_Surface {
   };
 
   enum ProblemShape{
-    Halfcircle,
-    Tilted_Halfcircle,
     Annulus,
     Square
   };
@@ -143,7 +131,6 @@ namespace Minimal_Surface {
     enum Boundary {
       None,
       Dirichlet_0,
-      Dirichlet_c,
       Dirichlet_a1,
       Dirichlet_a2,
       Dirichlet_s,
@@ -173,7 +160,6 @@ namespace Minimal_Surface {
     double                    L2 = 0;
     double                    H1 = 0;
 
-    Minimal_DC_circle         circ_DC_fcn;
     Minimal_DC_square         square_DC_fcn;   
     Minimal_DC1_catenoid      cat_DC1_fcn;
     Minimal_DC2_catenoid      cat_DC2_fcn;

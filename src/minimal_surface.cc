@@ -22,18 +22,9 @@ namespace Minimal_Surface{
       , singularity(singularity)
     {    
       // Assembling the file name and elevating the degree
+      //std::string name = "minimal_surface_weak";
       std::string name = "minimal_surface";
-      if (shape == ProblemShape::Halfcircle)
-      {
-        tria.degree_elevate(1, 1);
-        name += "_halfcircle";
-      }
-      else if (shape == ProblemShape::Tilted_Halfcircle)  
-      {
-        tria.degree_elevate(1, 1);
-        name += "_tilted_halfcircle";
-      }
-      else if (shape == ProblemShape::Annulus)
+      if (shape == ProblemShape::Annulus)
       {
         tria.degree_elevate(1, 1);
         
@@ -123,16 +114,6 @@ namespace Minimal_Surface{
         std::cout << face->center()[0] << ", "<< face->center()[1]<<std::endl;
         if (!face -> at_boundary())
           continue;
-        else if (shape == ProblemShape::Halfcircle || shape == ProblemShape::Tilted_Halfcircle)
-        {
-          const Point<2>& c = face -> center();
-          if (std::fabs(c(1)- 1) < 1e-15)
-            face -> set_boundary_id(Boundary::Dirichlet_c);
-          if (std::fabs(c(0) + 1) < 1e-15)
-            face -> set_boundary_id(Boundary::Periodic_left);
-          if (std::fabs(c(0) - 1) < 1e-15)
-            face -> set_boundary_id(Boundary::Periodic_right);
-        }
         else if (shape == ProblemShape::Annulus) 
         {
           const Point<2>& c = face -> center();
@@ -364,23 +345,6 @@ namespace Minimal_Surface{
             degrees,
             boundary_values);
 
-    }
-    else if (shape == ProblemShape::Tilted_Halfcircle 
-          || shape == ProblemShape::Halfcircle)
-    {
-      if (boundary_dofs.find(Boundary::Dirichlet_c) 
-          == boundary_dofs.end())
-        return;
-      std::cout << "Bin in Dirichlet_c in impose" << std::endl;
-      std::map<
-        types::boundary_id,
-        const Function< 2 >*
-      > boundary_fcns =
-          {{Boundary::Dirichlet_c, &circ_DC_fcn}};
-      tria.project_boundary_values(
-            boundary_fcns,
-            degrees,
-            boundary_values);
     }
     else
       AssertThrow(false, ExcNotImplemented());
@@ -669,7 +633,7 @@ namespace Minimal_Surface{
     std::string addition)
   {
     // Number of points to evaluate per direction
-    const unsigned int N = 31;
+    const unsigned int N = 41;
 
     // Declare a container to store the values 
     FullMatrix<double> B_num(3,N*N);
@@ -782,7 +746,6 @@ namespace Minimal_Surface{
         assemble_system();
         solve_system();
 
-
         current_residual = system_rhs.l2_norm();
         std::cout << "     ||system_rhs|| " << newton_iteration+1 
                   << ":   " << std::fixed << std::setprecision(8) 
@@ -824,7 +787,8 @@ namespace Minimal_Surface{
       if (cycle != 0 && tria.n_levels() != old_level)
       {
         std::cout << "Outputting system after last newton iteration ..." << std::endl;
-
+        if (tria.n_levels() < 25)
+          output_system();
         print_numerical_solution(current_solution);
         std::cout << " Print table in cycle: " << cycle << std::endl; 
         problem_out.add_values_to_table(
@@ -842,8 +806,7 @@ namespace Minimal_Surface{
         // Output the table to a file preemptively
         problem_out.write_table_text();
         problem_out.write_table_tex();
-        if (tria.n_levels() < 25)
-          output_system();
+
       }
       old_level = tria.n_levels();
       cycle++;
@@ -857,16 +820,6 @@ namespace Minimal_Surface{
   // =================================================================
 
   // =================================================================
-  double Minimal_DC_circle::value(
-    const Point<2>&     p, 
-    const unsigned int /* component */
-  ) const {
-    double out = 1.;//std::sin(2 * numbers::PI * (p[0] + p[1]));
-    std::cout << "Point: " << p[0] << ", " << p[1] << std::endl;
-
-    return out;
-  } // value_DC_circle
-
 
 
   double Minimal_DC1_catenoid::value(
@@ -881,8 +834,8 @@ double Minimal_DC2_catenoid::value(
     const Point<2>&     /*p*/, 
     const unsigned int /* component */
   ) const {
-    //double out = 2;    // Height of the inner boundary for r = 1.5ish
-    //double out = 1.68508;    // Height of r= 1.05
+    //double out = 2;    // Height of the inner boundary for r = 1
+    //double out = 1.68508;    // Height of r= 1.5ish
     double out = 1.55643;    // Height of r= 1.1
     return out;
   } // value_DC2_Catenoid
@@ -954,10 +907,6 @@ double Minimal_DC2_catenoid::value(
     const bool singularity
   ) {
     switch(shape){
-      case ProblemShape::Halfcircle:
-        return get_IPF_data_halfcircle();
-      case ProblemShape::Tilted_Halfcircle:
-        return get_IPF_data_tiltedhalfcircle();
       case ProblemShape::Annulus:
         return get_IPF_data_annulus(singularity);
       case ProblemShape::Square:
@@ -967,66 +916,6 @@ double Minimal_DC2_catenoid::value(
     }
   } // get_IPF_data
 
-  IPF_Data<2, 2> Minimal_Benchmark::get_IPF_data_halfcircle(
-  ) {
-    std::vector< std::vector< double > > kv;
-    std::vector< Point<2 + 1> > cps;
-    std::vector< unsigned int > deg;
-
-    // define the knot vectors
-    kv = std::vector< std::vector< double > >(2);
-    kv[0] = {-1, -1, -1, 0, 1, 1, 1};
-    kv[1] = {0, 0, 1, 1};
-
-    // define the control points vector
-    cps = std::vector< Point<3> >(8);
-    cps[0] = Point<2 + 1>(-1. , 0., 1. );
-    cps[1] = Point<2 + 1>(-0.5 , 0.5, 0.5);
-    cps[2] = Point<2 + 1>( 0.5 , 0.5, 0.5);
-    cps[3] = Point<2 + 1>( 1. , 0., 1. );
-    cps[4] = Point<2 + 1>( 0. , 0., 1. );
-    cps[5] = Point<2 + 1>(0. , 0., 0.5);
-    cps[6] = Point<2 + 1>( 0. , 0., 0.5);
-    cps[7] = Point<2 + 1>( 0. , 0., 1. );
-
-    // define the degrees
-    deg = {2, 1};
-
-    return IPF_Data<2, 2>(cps, kv, deg);
-
-  } // get_IPF_data_halfcircle
-
-  IPF_Data<2, 2> Minimal_Benchmark::get_IPF_data_tiltedhalfcircle(
-  ) {
-    std::vector< std::vector< double > > kv;
-    std::vector< Point<2 + 1> > cps;
-    std::vector< unsigned int > deg;
-
-    // define the knot vectors
-    kv = std::vector< std::vector< double > >(2);
-    kv[0] = {-1, -1, -1, 0, 1, 1, 1};
-    kv[1] = {0, 0, 1, 1};
-
-    // define the control points vector
-    cps = std::vector< Point<3> >(8);
-    double a = 1./std::sqrt(2); 
-    cps[0] = Point<2 + 1>(-a ,-a , 1. );
-    cps[1] = Point<2 + 1>(-a , 0., 0.5);
-    cps[2] = Point<2 + 1>( 0., a , 0.5);
-    cps[3] = Point<2 + 1>( a , a , 1. );
-    cps[4] = Point<2 + 1>( 0., 0., 1. );
-    cps[5] = Point<2 + 1>( 0., 0., 0.5);
-    cps[6] = Point<2 + 1>( 0., 0., 0.5);
-    cps[7] = Point<2 + 1>( 0., 0., 1. );
-
-
-
-    // define the degrees
-    deg = {2, 1};
-
-    return IPF_Data<2, 2>(cps, kv, deg);
-
-  } // get_IPF_data_tiltedhalfcircle
 
   IPF_Data<2, 2> Minimal_Benchmark::get_IPF_data_annulus(
     const bool singularity

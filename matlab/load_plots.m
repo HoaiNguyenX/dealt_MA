@@ -5,9 +5,9 @@ data_dir1 = '/home/ifam-studenten/nguyen/dealt_MA/out/minimal_surface_square_ada
 
 
 % Define the number of refinement levels
-iteration =2;
-num_levels = 11;
-N = 31;
+iteration =4;
+num_levels = 6;
+N = 41;
 
 % Initialize a cell array to store data
 data1 = cell(num_levels, 1);
@@ -52,7 +52,7 @@ xlabel('x');
 ylabel('y');
 zlabel('Solution z(x,y)');
 fig.Position =[0 0 700 700];
-legend(arrayfun(@(l) sprintf('Level %d', level), 1:num_levels, 'UniformOutput', false));
+%legend(arrayfun(@(l) sprintf('Level %d', level), 1:num_levels, 'UniformOutput', false));
 hold off;
 
 

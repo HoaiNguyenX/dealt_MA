@@ -888,37 +888,10 @@ void print_example(std::string ex, int ref, int order){
   } else if (ex == "minimal_standard") {
     Minimal_Surface::Minimal_Benchmark_Standard problem(order);
     problem.run(ref);
-  } else if (ex == "minimal_test_uni") {
-    Minimal_Surface::Minimal_Test problem(
-      ref, order,
-      Minimal_Surface::ProblemShape::Square
-    );
-    problem.run();
-    } else if (ex == "minimal_test_ad") {
-    Minimal_Surface::Minimal_Test problem(
-      ref, order, 
-      Minimal_Surface::ProblemShape::Square,
-      Minimal_Surface::RefinementStrategy::Adaptive
-    );
-    problem.run();
 
 
 
 
-  } else if (ex == "minimal_c_uniform") {
-    Minimal_Surface::Minimal_Benchmark problem(
-      ref, order, 
-      Minimal_Surface::ProblemShape::Tilted_Halfcircle,
-      Minimal_Surface::RefinementStrategy::Uniform
-    );
-    problem.run();
-  } else if (ex == "minimal_c_ad") {
-    Minimal_Surface::Minimal_Benchmark problem(
-      ref, order, 
-      Minimal_Surface::ProblemShape::Tilted_Halfcircle,
-      Minimal_Surface::RefinementStrategy::Adaptive
-    );
-    problem.run();
   } else if (ex == "minimal_s_uni") {
     Minimal_Surface::Minimal_Benchmark problem(
       ref, order, 
@@ -965,6 +938,9 @@ void print_example(std::string ex, int ref, int order){
       true
     );
     problem.run();
+
+
+
 
 
   // Nonlinear Poisson Problems in 2D

@@ -80,7 +80,6 @@ namespace dealt {
     );
 
     // With n_Newton_steps
-
     void add_values_to_table(
       const unsigned int  &level,
       const unsigned int  &cycle,
@@ -125,6 +124,13 @@ namespace dealt {
       const std::vector<double>      &values,
       const bool                     &clear = false
     );
+
+    void add_single_value_to_table(
+      const std::string& column,
+      const double& value,
+      const bool& clear = false
+    );
+
   
     void write_table_text(
       std::ostream& out

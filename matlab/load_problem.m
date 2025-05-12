@@ -545,7 +545,7 @@ if contains(name, 'solution')
     xi = false;
 end
 
-fs = 25;
+fs = 50;
 set(gca, 'FontSize', fs/2);
 if ~strcmp(name, 'sparsity_pattern')
     if xi

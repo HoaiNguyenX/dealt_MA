@@ -127,16 +127,16 @@ load_problem(data, problem, out_path, o, l, 1);
 
 %% Minimal surface catenoid
 
-o = 2; l = 8; dim = 3; 
-out_path = './img_out/minimal_surface_catenoid_aa';
-data = {'solution'};
+o = 2; l = 10; dim = 3; 
+out_path = './img_out/minimal_surface_catenoid_p2l10_';
+data = {'physical_grid'};
 problem = '../out/minimal_surface_annulus_adaptive/';
 load_problem(data, problem, out_path, o, l, 14);
 colorbar
 
 %% Minimal surface catenoid singularity
 
-o = 2; l = 3; dim = 3; 
+o = 2; l = 4; dim = 3; 
 out_path = './img_out/minimal_surface_catenoid_singular';
 data = {'solution'};
 problem = '../out/minimal_surface_annulus_sing_adaptive/';

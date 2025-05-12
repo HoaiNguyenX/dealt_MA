@@ -9,7 +9,6 @@ namespace Minimal_Surface {
     ) const {
     double a = 0.5;
     double out = 0.;
-
     if (p[0] >= 0. && p[0] < 0.25)
       out = a*p[0];
     else if (p[0] >= 0.25 && p[0] < 0.5)
@@ -18,6 +17,8 @@ namespace Minimal_Surface {
       out = a*(p[0] - 0.5);
     else if (p[0] > 0.75 && p[0] <= 1)
       out = a*(1 - p[0]);
+    //out = 1.;       // inner radius = 1.54308
+    //out = 1.55643;    // inner radius = 1.1
     return out;
   }
 
@@ -28,6 +29,32 @@ namespace Minimal_Surface {
     return 0;
   }
 
+  double Minimal_SOL::value(
+    const Point<2> &p,
+    const unsigned int /*component*/
+    ) const {
+    const double scaling = 1.0;
+
+    double out = 0.;
+    double radius = std::sqrt(p[0]*p[0] + p[1]*p[1]);
+    out = -scaling * std::acosh(radius/scaling) + 2.;
+    return out;
+  }
+
+  Tensor<1, 2> Minimal_SOL::gradient(
+    const Point<2> &p,
+    const unsigned int /*component*/
+    ) const {
+    Tensor<1, 2> out;
+    double scaling = 1.0;
+    double r = std::sqrt(p[0]*p[0] + p[1]*p[1]);
+    out[0] = -1. * scaling*p[0] / (r* std::sqrt(r*r - scaling*scaling));
+    out[1] = -1. * scaling*p[1] / (r* std::sqrt(r*r - scaling*scaling));
+     
+    return out;
+  }
+
+
   Minimal_Benchmark_Standard::Minimal_Benchmark_Standard(
     int order
   )
@@ -35,7 +62,50 @@ namespace Minimal_Surface {
     , fe(order)
     , rhs_fcn()
   {
-    problem_out = OutputSetup("minimal_benchmark_standard_square/", fe.degree);
+
+    std::string name = "minimal_standard_square/";
+
+
+
+    // Set the output file name for annulus
+      const std::vector<std::string>& columns =
+        {"Level", "Cycles", "Cells", "DoFs", "k_{Newton}", "update_norm", "last_norm"};
+      const std::vector<std::string>& tex_captions = 
+        {"Level", "Cycles", "# cells", "\\# dofs", "\\k_{Newton}", "update_norm", "last_norm"};
+      const std::vector<bool>& scientific =
+        {false, false, false, false, false, true, true};
+      const std::vector<unsigned int> precision = 
+        {0, 0, 0, 0, 0, 2, 2};
+      const std::vector<std::string>& super_column_names = 
+        {"Grid Info", "Newton"};
+      const std::vector<std::vector<std::string>> super_columns =
+        {{"Level", "Cycles", "Cells", "DoFs"}, {"k_{Newton}", "update_norm", "last_norm"}};
+      
+      // const std::vector<std::string>& columns =
+      //   {"Level", "Cycles", "Cells", "DoFs", "k_{Newton}", "update_norm", "last_norm", "L2", "H1"};
+      // const std::vector<std::string>& tex_captions = 
+      //   {"Level", "Cycles", "# cells", "\\# dofs", "\\k_{Newton}", "update_norm", "last_norm", "$L_2$-error", "$H^1$-error"};
+      // const std::vector<bool>& scientific =
+      //   {false, false, false, false, false, true, true, true, true};
+      // const std::vector<unsigned int> precision = 
+      //   {0, 0, 0, 0, 0, 2, 2, 2, 2};
+      // const std::vector<std::string>& super_column_names = 
+      //   {"Grid Info", "Newton", "Errors"};
+      // const std::vector<std::vector<std::string>> super_columns =
+      //   {{"Level", "Cycles", "Cells", "DoFs"}, {"k_{Newton}", "update_norm", "last_norm"}, {"L2", "H1"}};
+
+
+
+    problem_out = OutputSetup(  name
+                                  , fe.degree
+                                  , columns
+                                  , tex_captions
+                                  , scientific
+                                  , precision
+                                  , super_column_names
+                                  , super_columns
+                                  ); 
+    problem_out.table.set_auto_fill_mode(true);
   }
 
 
@@ -50,15 +120,23 @@ namespace Minimal_Surface {
                                              0,
                                              Functions::ZeroFunction<2>(),
                                              zero_constraints);
+    // VectorTools::interpolate_boundary_values(dof_handler,
+                                            //  1,
+                                            //  Functions::ZeroFunction<2>(),
+                                            //  zero_constraints);                                         
     DoFTools::make_hanging_node_constraints(dof_handler, zero_constraints);
     zero_constraints.close();
  
     nonzero_constraints.clear();
+
+    // VectorTools::interpolate_boundary_values(dof_handler,
+                                            //  1,
+                                            //  Functions::ZeroFunction<2>(),
+                                            //  nonzero_constraints);                                         
     VectorTools::interpolate_boundary_values(dof_handler,
                                              0,
                                              BoundaryValues(),
                                              nonzero_constraints);
- 
     DoFTools::make_hanging_node_constraints(dof_handler, nonzero_constraints);
     nonzero_constraints.close();
  
@@ -178,11 +256,22 @@ namespace Minimal_Surface {
       std::map<types::boundary_id, const Function<2> *>(),
       current_solution,
       estimated_error_per_cell);
- 
-    GridRefinement::refine_and_coarsen_fixed_number(triangulation,
+      std::cout << " cycle " << cycle << std::endl; 
+    if (cycle < 4)
+    {
+      GridRefinement::refine_and_coarsen_fixed_number(triangulation,
                                                     estimated_error_per_cell,
-                                                    0.3,
-                                                    0.03);
+                                                    0.30,
+                                                    0.0);
+    }
+    else
+    {
+      GridRefinement::refine_and_coarsen_fixed_number(triangulation,
+                                                    estimated_error_per_cell,
+                                                    0.20,
+                                                    0.0);
+    }
+    
  
     triangulation.prepare_coarsening_and_refinement();
  
@@ -338,6 +427,36 @@ namespace Minimal_Surface {
   ) {
   	//.vtu for visualization
     std::cout << "        Printing to files" << std::endl;
+
+
+    // Minimal_SOL sol_fcn;
+    // Vector<float> difference_per_cell(triangulation.n_active_cells());
+    // VectorTools::integrate_difference(dof_handler,
+    //                                   current_solution,
+    //                                   sol_fcn,
+    //                                   difference_per_cell,
+    //                                   QGauss<2>(fe.degree + 1),
+    //                                   VectorTools::L2_norm);
+    // const double L2_error =
+    //   VectorTools::compute_global_error(triangulation,
+    //                                     difference_per_cell,
+    //                                     VectorTools::L2_norm);
+ 
+    // VectorTools::integrate_difference(dof_handler,
+    //                                   current_solution,
+    //                                   sol_fcn,
+    //                                   difference_per_cell,
+    //                                   QGauss<2>(fe.degree + 1),
+    //                                   VectorTools::H1_seminorm);
+    // const double H1_semi_error =
+    //   VectorTools::compute_global_error(triangulation,
+    //                                     difference_per_cell,
+    //                                     VectorTools::H1_seminorm);
+
+    // const double H1_error = 
+    //   std::sqrt(L2_error * L2_error + H1_semi_error * H1_semi_error);
+
+
   	Vector<float> estimated_error_per_cell(triangulation.n_active_cells());
 
   	KellyErrorEstimator<2>::estimate(
@@ -352,6 +471,7 @@ namespace Minimal_Surface {
   	data_out.attach_dof_handler(dof_handler);
   	data_out.add_data_vector(current_solution, "solution");
     data_out.add_data_vector(newton_update, "update");
+    data_out.add_data_vector(estimated_error_per_cell, "estimated_error");
   	data_out.build_patches();
 
     
@@ -382,7 +502,7 @@ namespace Minimal_Surface {
     GridOut       grid_out;
     grid_out.set_flags(svg_flags);
   
-    if (triangulation.n_levels()-1 < 11) {
+    if (triangulation.n_levels()-1 < 15) {
   	  std::ofstream svg_out(svg_name);
       grid_out.write_svg(triangulation, svg_out);
   	  //print_numerical_solution();
@@ -398,13 +518,26 @@ namespace Minimal_Surface {
   	<< "   Number of active cells:       " << n_active_cells << std::endl
   	<< "   Number of degrees of freedom: " << n_dofs << std::endl;
   
-  	
-  	
-  	
+  	// cast unsigned int to int
+    if ( triangulation.n_levels() != old_level ) {
+
+  	problem_out.add_single_value_to_table("Level", triangulation.n_levels() - 1);
+    problem_out.add_single_value_to_table("Cycles", cycle);
+    problem_out.add_single_value_to_table("Cells", n_active_cells);
+    problem_out.add_single_value_to_table("DoFs", n_dofs);
+    problem_out.add_single_value_to_table("k_{Newton}", newton_iteration);
+    problem_out.add_single_value_to_table("update_norm", newton_update.l2_norm());
+    problem_out.add_single_value_to_table("last_norm", estimated_error_per_cell.l2_norm());
+    // problem_out.add_single_value_to_table("L2", L2_error);
+    // problem_out.add_single_value_to_table("H1", H1_error);
+
+
   	// output in .text 
     problem_out.write_table_text();
     problem_out.write_table_tex();
-
+    std::cout << "        Outputting table level " << triangulation.n_levels() - 1 << std::endl;
+    old_level = triangulation.n_levels();
+    }
   } // process_results
 
  
@@ -417,44 +550,50 @@ namespace Minimal_Surface {
     GridGenerator::hyper_cube(triangulation);
     triangulation.refine_global(1);
 
+    // const Point<2> center(0., 0.);
+    // const double inner_radius = 1.1, outer_radius = 3.762196;
+    // //const double inner_radius = 1.54308, outer_radius = 3.762196;
+    // GridGenerator::hyper_shell(
+    //   triangulation,
+    //   center,
+    //   inner_radius,
+    //   outer_radius,
+    //   4,
+    //   true
+    // );
+    // triangulation.refine_global(1);
+
     std::cout << "    Setting system... " << std::endl;
   	setup_system();
     nonzero_constraints.distribute(current_solution);
 
     //refinement cycle
-    unsigned int cycle = 0;
-    while (cycle < ref)
-    //while (triangulation.n_levels() < ref + 1 )
+    while (triangulation.n_levels() < ref + 1 )
     {
   		std::cout << "Cycle " << cycle << ':' << std::endl;
 
       if (cycle != 0)
       {
-        //std::cout << "    Refining grid..." << std::endl;
+        std::cout << "    Refining grid..." << std::endl;
         refine_mesh();
       }
 
       std::cout << "  Initial residual: " << compute_residual(0) << std::endl;
-
-      for (unsigned int newton_iteration = 0; newton_iteration < 500; ++newton_iteration)
+      newton_iteration = 0;
+      while (newton_iteration < 50)
       {
-        //std::cout << "    N_Iteration: " << newton_iteration + 1 << std::endl;
-        //std::cout << "    Assembling system ..." << std::endl;
         assemble_system();
-
-        //std::cout << "    Solving system..." << std::endl;
         solve();
         double current_residual = compute_residual(0);
         std::cout << "  Residual in step " << newton_iteration <<": " << current_residual << std::endl;
-        if (current_residual < 1e-5)
+        if (current_residual < 1e-8)
           break;
+        newton_iteration++;
       }
-      
-
       std::cout << "    Processing results..." << std::endl;
   	  process_results(cycle++);
-
   	}
+    
 
     //problem_out.write_table_text(std::cout);
 	}

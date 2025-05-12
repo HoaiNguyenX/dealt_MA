@@ -30,7 +30,6 @@
 #include <nonlinear_2d.h>
 #include <nonlinear_3d.h>
 
-#include <minimal_test.h>
 
 
 /*

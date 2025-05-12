@@ -21,6 +21,7 @@
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
 #include <deal.II/base/utilities.h>
+#include <deal.II/base/convergence_table.h>
  
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -48,7 +49,7 @@
 #include <fstream>
 #include <iostream>
  
- 
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/numerics/solution_transfer.h>
 
 #include <cmath>
@@ -82,6 +83,22 @@ namespace Minimal_Surface {
     ) const override;
   };
 
+  class Minimal_SOL : public Function<2> {
+  public:
+    Minimal_SOL() : Function<2>(1) {}
+    ~Minimal_SOL() = default;
+
+    virtual double value(
+      const Point<2>&     p,
+      const unsigned int  component = 0
+    ) const override;
+
+    virtual Tensor<1, 2> gradient(
+      const Point<2>&     p,
+      const unsigned int  component = 0
+    ) const override;
+  };
+
   class Minimal_Benchmark_Standard {
 
   private:
@@ -104,6 +121,11 @@ namespace Minimal_Surface {
 
     double H1 = 1;
     double L2 = 1;
+
+
+    int cycle = 0;
+    int newton_iteration = 0;
+    int old_level = 0;
 
     OutputSetup problem_out;
 
