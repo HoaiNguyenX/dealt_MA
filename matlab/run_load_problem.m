@@ -51,7 +51,7 @@ out_path = ['./img_out/lshape_ac_'];
 
 load_problem(data, problem, out_path, o, l, 1)
 
-%% Poisson benchmark 3D case1, 1, dim
+%% Poisson benchmark 3D case
 o = 2; l = 5; 
 data = {'solution'};
 problem = '../out/poisson_benchmark_3d/';
@@ -69,7 +69,7 @@ problem = ['../out/linear_elasticity_inhomogeneous/' num2str(dim) 'd/'];
 % for o = 2:6
 %     out_path = ['./img_out/linear_elasticity_inhomogeneous_2d_o' num2str(o) '_'];
 %     load_problem(data, problem, out_path, o, l, o, dim)
-% end1, 1, dim
+% end
 
 data = {'solution'};
 o = 2; 
@@ -107,75 +107,15 @@ problem = '../out/poisson_benchmark_3d/';
 load_problem(data, problem, out_path, o, l, 1, 1, dim);
 
 
-%% Minimal surface square 
-
-o = 2; l = 12; dim = 3; 
-out_path = './img_out/minimal_surface_square_sol';
-data = {'solution'};
-problem = '../out/minimal_surface_square_adaptive/';
-load_problem(data, problem, out_path, o, l, 1);
 
 
-%% Minimal surface square consecutive grid
-
-o = 4; l = 10; dim = 3; 
-out_path = './img_out/nonlinear_consgrid';
-data = {'grid_consecutive'};
-problem = '../out/nonlinear2d_adaptive/k3_case_1/';
-load_problem(data, problem, out_path, o, l, 1);
 
 
-%% Minimal surface catenoid
-
-o = 2; l = 10; dim = 3; 
-out_path = './img_out/minimal_surface_catenoid_p2l10_';
-data = {'physical_grid'};
-problem = '../out/minimal_surface_annulus_adaptive/';
-load_problem(data, problem, out_path, o, l, 14);
-colorbar
-
-%% Minimal surface catenoid singularity
-
-o = 2; l = 4; dim = 3; 
-out_path = './img_out/minimal_surface_catenoid_singular';
-data = {'solution'};
-problem = '../out/minimal_surface_annulus_sing_adaptive/';
-load_problem(data, problem, out_path, o, l, 14);
-colorbar
 
 
-%% nonlinear2d k=1 case 1
 
-o = 2; l = 3; dim = 3; 
-out_path = './img_out/nonlinear2d_k1_c1_1';
-data = {'solution'};
-problem = '../out/nonlinear2d_adaptive/k1_case_1/';
-load_problem(data, problem, out_path, o, l, 14);
-colorbar
 
-%% nonlinear2d k=3 case 1
 
-o = 4; l = 12; dim = 3; 
-out_path = './img_out/nonlinear2d_k3c1_p4_l12';
-data = {'solution'};
-problem = '../out/nonlinear2d_adaptive/k3_case_1/';
-load_problem(data, problem, out_path, o, l, 14);
-colorbar
 
-%% nonlinear2d k=3 case 2
 
-o = 2; l = 12; dim = 3; 
-out_path = './img_out/nonlinear2d_k3c2_p2_l12_';
-data = {'solution'};
-problem = '../out/nonlinear2d_adaptive/k3_case_2/';
-load_problem(data, problem, out_path, o, l, 14);
-colorbar
 
-%% nonlinear2d k=3 case 3
-
-o = 2; l = 12; dim = 2; 
-out_path = './img_out/nonlinear2d_k3c3_p2_l12_';
-data = {'solution'};
-problem = '../out/nonlinear2d_adaptive/k3_case_3/';
-load_problem(data, problem, out_path, o, l, 12);
-colorbar
