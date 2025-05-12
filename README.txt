@@ -44,7 +44,27 @@ where <problem> is [to this extent] either of the following benchmark problems
   linear_elasticity_3d	-- solves a standard 3D linear elasticity equation on the unit square
 			   without curved boundaries and no distortions, to demonstrate 
 			   vector-valued Tsplines as finite elements. This is not tested yet.
-
+	minimal		-- solves the 2D Minimal Surface Problem on a unit square or a half 
+			   annulus. The suffixes have to be added for a proper run:
+				_standard
+				_a
+				_as
+				_s
+			   and then for _a, _as and _s
+				_uni
+				_ad
+			   where 'a' stands for annulus, 's' for square. 'as' is is a special 
+			   case of 'a', where the inner radius is near the minimal radius of an
+			   catenoid.
+	nonlinear	-- solves a 2D nonlinear Poisson's equation. Several suffixes have 
+			   to be added:
+			   	_k<exponent>
+				_c<case>
+			   and then 
+				_uni
+				_ad
+			   where the k>0 is the exponent of the nonlinear term and 0<c<4 the case
+			   of boundary conditions for the problem.
 Other examples may be found in src/examples.cc that demonstrate further usage of TS_Triangulation. 
 
 The variables <levels> and <degrees> are numeric values to describe the maximum level, resp. the
